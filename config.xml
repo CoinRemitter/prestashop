@@ -2,7 +2,7 @@
 <module>
     <name>coinremitter</name>
     <displayName><![CDATA[Coinremitter]]></displayName>
-    <version><![CDATA[1.0.1]]></version>
+    <version><![CDATA[1.0.2]]></version>
     <description><![CDATA[Accept Bitcoin, BitcoinCash, Bitcoin Gold, Ethereum, Litecoin, Dogecoin, Ripple, Tether (USDT), Dash etc via Coinremitter.]]></description>
     <author><![CDATA[Coinremitter]]></author>
     <tab><![CDATA[wallets]]></tab>
