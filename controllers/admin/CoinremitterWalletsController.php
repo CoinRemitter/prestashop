@@ -1,21 +1,24 @@
 <?php
+use Symfony\Component\Translation\Translator;
+use Symfony\Component\Translation\TranslatorInterface;   
 
 class CoinremitterWalletsController extends ModuleAdminController{
    public $api_url = '' ;
    public $success_msg = '';
    public $invoice = '';
 
-	public function __construct(){
+   public function __construct(){
       parent::__construct();
       $this->success_msg = $this->_getSession()->get('displaySuccess');
-	   $this->invoice = new CR_Invoice();
+      $this->invoice = new CR_Invoice();
+      
    }
-	public function init(){
+   public function init(){
       parent::init();
       $this->name = 'coinremitter';
       $this->bootstrap = true;
-	}
-	public function initContent(){
+   }
+   public function initContent(){
 
       parent::initContent();
 
@@ -25,23 +28,23 @@ class CoinremitterWalletsController extends ModuleAdminController{
       //update all wallets' balances
       $this->update_wallet_balance();
 
-     	if(Tools::isSubmit('create_wallet')) {
+      if(Tools::isSubmit('create_wallet')) {
          $this->AddWallet();
       }
 
       if(Tools::isSubmit('update_wallet')) {
          $this->UpdateWallet();
       }
-
       $wallets  = $this->getWallets();
       $action = Tools::getValue('action');
       $post_param = Tools::getAllValues();
-     	if($action){
+
+      if($action){
          if($action == 'create'){
             $p['wallets_api'] = '';
             $p['wallet_password'] ='';
             $p['coinremitter_ex_rate'] = '1';
-            $p['minimum_value'] = '0';
+            $p['minimum_value'] = '0.01'; 
             $coins =$this->getSelectCoinList();
             $this->context->smarty->assign(array(
                'coins'=>$coins,
@@ -66,7 +69,7 @@ class CoinremitterWalletsController extends ModuleAdminController{
                'params'=>$post_param,
             ));
             $this->setTemplate('create.tpl');
-     	   }else if($action == 'up'){
+         }else if($action == 'up'){
 
             $id = Tools::getValue('id');
             $wallets = $this->getWalletById($id);
@@ -99,19 +102,19 @@ class CoinremitterWalletsController extends ModuleAdminController{
             'success_msg' =>$msg,
             'wallets'=>$wallets,
             'img_path' => Media::getMediaPath(_PS_MODULE_DIR_.$this->name.'/img/'),
-            'webhook_url' => _PS_BASE_URL_ . __PS_BASE_URI__ . 'module/coinremitter/webhook'
+            'webhook_url' => $this->context->link->getModuleLink('coinremitter','webhook'),
          ));
          $this->setTemplate('index.tpl');
       }
-	}
-	public function getWallets(){
+   }
+   public function getWallets(){
       $wtable = 'coinremitter_wallets';
       $bp_sql = "SELECT * FROM $wtable";
       $results = Db::getInstance()->executes($bp_sql);
       return $results;
   }
   public function getWalletById($id){
-  	   $wtable = 'coinremitter_wallets';
+      $wtable = 'coinremitter_wallets';
       $bp_sql = "SELECT * FROM $wtable WHERE id = '$id' LIMIT 1";
       $results = Db::getInstance()->executes($bp_sql);
       if (count($results) == 1){
@@ -130,10 +133,7 @@ class CoinremitterWalletsController extends ModuleAdminController{
    public function AddWallet(){
       $post_param = Tools::getAllValues();
 
-      //validation
       
-
-
       $postData = [
          'api_key'=>$post_param['wallets_api'],
          'password'=>$post_param['wallet_password'],
@@ -151,19 +151,20 @@ class CoinremitterWalletsController extends ModuleAdminController{
     
       if($result['flag'] == 1){
 
+         //validation
          $coinremitter_ex_rate_value = $post_param['coinremitter_ex_rate'];
       
          if($coinremitter_ex_rate_value == ''){
 
             return $this->displayWarning('Exchange rate multiplier field is required'); 
             
-         }else if(!preg_match('/^[0-9]+(\.[0-9]{1,8})?$/', $coinremitter_ex_rate_value)){
+         }else if(!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $coinremitter_ex_rate_value)){
                   
             return $this->displayWarning('Exchange rate multiplier field is invalid');
             
-         }else if($coinremitter_ex_rate_value < 1 || $coinremitter_ex_rate_value > 100){
+         }else if($coinremitter_ex_rate_value <= 0 || $coinremitter_ex_rate_value >= 101){
 
-            return $this->displayWarning('Exchange rate multiplier field should be between 1 to 100');
+            return $this->displayWarning('Exchange rate multiplier field should be between 0 to 101');
          }
 
          $minimum_value = $post_param['minimum_value'];
@@ -172,10 +173,13 @@ class CoinremitterWalletsController extends ModuleAdminController{
 
             return $this->displayWarning('Minimum value field is required'); 
             
-         }else if(!preg_match('/^[0-9]+(\.[0-9]{1,8})?$/', $minimum_value)){
+         }else if(!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $minimum_value)){
                   
-            return $this->displayWarning('Minimum value field is invalid'); 
+            return $this->displayWarning('Invoice Minimum value field is invalid'); 
 
+         }else if($minimum_value < 0.01 || $minimum_value >= 1000000){
+
+            return $this->displayWarning('Invoice Minimum value should be between 0.01 to 1000000');
          }
 
 
@@ -200,9 +204,6 @@ class CoinremitterWalletsController extends ModuleAdminController{
    public function UpdateWallet(){
       $post_param = Tools::getAllValues();
 
-      //validation
-      
-
       $wallet_id = $post_param['wallet_id'];
       $wallet = $this->getWalletById($wallet_id);
     
@@ -217,19 +218,20 @@ class CoinremitterWalletsController extends ModuleAdminController{
          $wallet_table = 'coinremitter_wallets';
          if($result['flag'] == 1){
 
+            //validation
             $coinremitter_ex_rate_value = $post_param['coinremitter_ex_rate'];
       
             if($coinremitter_ex_rate_value == ''){
 
                return $this->displayWarning('Exchange rate multiplier field is required'); 
                
-            }else if(!preg_match('/^[0-9]+(\.[0-9]{1,8})?$/', $coinremitter_ex_rate_value)){
+            }else if(!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $coinremitter_ex_rate_value)){
                      
                return $this->displayWarning('Exchange rate multiplier field is invalid');
                
-            }else if($coinremitter_ex_rate_value < 1 || $coinremitter_ex_rate_value > 100){
+            }else if($coinremitter_ex_rate_value <= 0 || $coinremitter_ex_rate_value >= 101){
 
-               return $this->displayWarning('Exchange rate multiplier field should be between 1 to 100');
+               return $this->displayWarning('Exchange rate multiplier field should be between 0 to 101');
             }
 
             $minimum_value = $post_param['minimum_value'];
@@ -238,10 +240,13 @@ class CoinremitterWalletsController extends ModuleAdminController{
 
                return $this->displayWarning('Minimum value field is required'); 
                
-            }else if(!preg_match('/^[0-9]+(\.[0-9]{1,8})?$/', $minimum_value)){
+            }else if(!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $minimum_value)){
                      
                return $this->displayWarning('Minimum value field is invalid'); 
 
+            }else if($minimum_value < 0.01 || $minimum_value >= 1000000){
+
+               return $this->displayWarning('Invoice Minimum value should be between 0.01 to 1000000');
             }
 
             $wdata = $result['data']; 

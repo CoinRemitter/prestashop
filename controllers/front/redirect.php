@@ -3,7 +3,8 @@
 class CoinremitterRedirectModuleFrontController extends ModuleFrontController{
 
    public function postProcess(){
-        
+       
+      $this->title = $this->module->l('My module title'); 
       $cart = $this->context->cart;
       $car_array = json_decode(json_encode($cart),true); 
       

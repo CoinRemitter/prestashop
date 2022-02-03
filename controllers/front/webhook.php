@@ -37,8 +37,11 @@ class CoinremitterWebhookModuleFrontController extends ModuleFrontController {
       $logger->logDebug("");
       date_default_timezone_set("UTC");
       $logger->logDebug("Webhook Called");
-		$post = Tools::getAllValues();
+      $post = Tools::getAllValues();
       $logger->logDebug($post);
+      
+      
+
 		$db = Db::getInstance();
       $invoice = new CR_Invoice();
 		if($post['address'] && $post['address'] && $post['coin_short_name'] && $post['coin_short_name']!="" && $post['type'] && $post['type'] == "receive"){

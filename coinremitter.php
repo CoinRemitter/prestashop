@@ -49,7 +49,7 @@
          $this->displayName = $this->l('Coinremitter');
          $this->description = $this->l('Accept Bitcoin, BitcoinCash, Bitcoin Gold, Ethereum, Litecoin, Dogecoin, Ripple, Tether (USDT), Dash etc via Coinremitter.');
          $this->confirmUninstall = $this->l('Are you sure you want to delete your details?');
-         $this->tabClassName = 'CoinremitterWallets';
+         $this->tabClassName = 'CoinremitterWallets';         
          if (!count(Currency::checkPaymentCurrencies($this->id))) {
             $this->warning = $this->l('No currency has been set for this module.');
          }
@@ -76,8 +76,8 @@
             `name` varchar(255) NOT NULL,
             `api_key` varchar(255) NOT NULL,
             `password` varchar(255) NOT NULL,
-            `exchange_rate_multiplier` varchar(255) NOT NULL DEFAULT 1 COMMENT 'between 1 to 100',
-            `minimum_value` varchar(255) NOT NULL DEFAULT 0,
+            `exchange_rate_multiplier` varchar(255) NOT NULL DEFAULT 1 COMMENT 'between 0 to 101',
+            `minimum_value` varchar(255) NOT NULL DEFAULT 5 COMMENT 'between 1 to 1000000',
             `is_valid` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1 on valid wallet else 0',
             `balance` varchar(255) NOT NULL,
             `date_added` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -397,6 +397,7 @@
       
       protected function generateForm(){
          
+         $des = Configuration::get('coinremitter_desc');
          $wallet = $this->getWallets();
          $number_of_wallet = count($wallet);
 
@@ -409,6 +410,16 @@
          $invoice = new CR_Invoice();
          $add_param['fiat_symbol'] = $currency->iso_code;
 
+         if($number_of_wallet == 0){
+
+            $this->context->smarty->assign(array(
+               'action' => $this->context->link->getModuleLink($this->name, 'redirect', array(), true),
+               'message' => 'No coin wallet setup', 
+               'description' => $des,
+            ));
+            return $this->context->smarty->fetch($this->local_path.'views/templates/front/payment_form.tpl');
+
+         }
          for($i=0; $i<$number_of_wallet; $i++){
             $add_param['fiat_amount'] = $total * $wallet[$i]['exchange_rate_multiplier'];
             $add_param['api_key'] = $wallet[$i]['api_key'];
@@ -431,10 +442,11 @@
 
          }
          
-         $des = Configuration::get('coinremitter_desc');
+         
          $this->context->smarty->assign(array(
             'action' => $this->context->link->getModuleLink($this->name, 'redirect', array(), true),  
             'wallets' => $validate_wallet,
+            'message' => 'Invoice amount is too low. Choose other payment method',
             'description' => $des,
          ));
          return $this->context->smarty->fetch($this->local_path.'views/templates/front/payment_form.tpl');

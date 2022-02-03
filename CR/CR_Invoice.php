@@ -11,7 +11,7 @@ class CR_Invoice
    public $encryption_iv = 'Coinremitter__iv'; // Non-NULL (precisely 16 bytes) Initialization Vector for encryption
 
 	public function __construct(){
-      $this->api_base_url = 'http://192.168.0.104/coinremitter/public/api';
+      $this->api_base_url = 'https://coinremitter.com/api'; 
       $this->version = 'v3';
       $this->request = new Request();
 	}

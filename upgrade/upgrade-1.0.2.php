@@ -16,7 +16,7 @@ function upgrade_module_1_0_2($object) {
    $sql = "ALTER TABLE `coinremitter_order` ADD `address` VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'Address' AFTER `order_id`, ADD `address_qrcode` VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'address qrcode' AFTER `address`";
    $db->Execute($sql);
 
-   $sql = "ALTER TABLE `coinremitter_wallets` ADD `exchange_rate_multiplier` VARCHAR(255) NOT NULL DEFAULT '1' COMMENT 'between 1 to 100' AFTER `password`, ADD `minimum_value` VARCHAR(255) NOT NULL DEFAULT '0' AFTER `exchange_rate_multiplier`";
+   $sql = "ALTER TABLE `coinremitter_wallets` ADD `exchange_rate_multiplier` VARCHAR(255) NOT NULL DEFAULT '1' COMMENT 'between 0 to 101' AFTER `password`, ADD `minimum_value` VARCHAR(255) NOT NULL DEFAULT '5' COMMENT 'between 1 to 1000000' AFTER `exchange_rate_multiplier`";
 
    $db->Execute($sql);
    

@@ -45,10 +45,13 @@
             </div>
             <div class="form-group">
                <label class="control-label col-lg-3">
-                  <span title="" data-toggle="tooltip" class="label-tooltip" data-original-title="Minimum value" data-html="true">Minimum value </span>
+                  <span title="" data-toggle="tooltip" class="label-tooltip" data-original-title="Invoice Minimum value" data-html="true">Invoice Minimum value </span>
                </label>
                <div class="col-lg-9">                      
                   <input class="form-control " type="text" name="minimum_value" value="{$wallet['minimum_value']}">
+                  <p class="help-block">
+                     The amount must be equal to or more than the minimum invoice value in order to create an invoice. For example, if the minimum invoice value is 1, the amount in the invoice must be equal to or more than that amount.
+                  </p>
                </div>
             </div>
          </div>

@@ -8,7 +8,7 @@
 		</select>
 		<div class="mt-1 ml-3">{$description}</div>
 	{else}
-	   <span>No coin wallet setup</span>
+	   <span>{$message}</span>
 	{/if}
 </form>
 

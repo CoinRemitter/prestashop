@@ -18,7 +18,7 @@
                      <div class="cr-plugin-shipping cr-plugin-shadow cr-plugin-mr-top clearfix">
                         <div class="cr-plugin-shipping-address">
                            <h3 class="cr-plugin-title">Billing Address</h3>
-                           <p>
+                           <p>{l s='Hello,' d='Admin.Navigation.Header'}
                               <address>{$order.addresses.delivery.formatted nofilter}</address>
                            </p>
                         </div>
