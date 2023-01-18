@@ -12,7 +12,7 @@ Crypto Payment Processor acts as a bridge between the merchant’s website and t
 
 Requirements
 ---
-* For the integration process with coinremitter, users must need to have Prestashop version 1.7+  
+* For the integration process with coinremitter, users must need to have Prestashop version 1.7+
 * If you don't have a Coinremitter account then please consider making it one.  [Create Account ](https://coinremitter.com/signup)
 
 Plugin Installation Guide:
@@ -59,10 +59,13 @@ There you will need to fill up some details according to your preferences:
 
 **TITLE**:
 The title you write, which will appear to the customers on the checkout page.
+
 **DESCRIPTION:**
 You can add a few details to tell the customer something important before the customer takes any step during checkout.
+
 **INVOICE EXPIRY TIME IN MINUTES:**
 If you set the value 30 then the invoice created will expire after 30 minutes.
+
 **ORDER STATUS:**
 Set the order status, when customers successfully make payment using cryptocurrency.
 You’re all SET, save the setting.
