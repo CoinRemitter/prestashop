@@ -47,7 +47,7 @@
 
          $this->tabParentName = 'AdminTools';
          $this->displayName = $this->l('Coinremitter');
-         $this->description = $this->l('Accept Bitcoin, BitcoinCash, Bitcoin Gold, Ethereum, Litecoin, Dogecoin, Ripple, Tether (USDT), Dash etc via Coinremitter.');
+         $this->description = $this->l('Accept Bitcoin, Tron, Binance (BEP20), BitcoinCash, Ethereum, Litecoin, Dogecoin, Tether, Dash etc via Coinremitter.');
          $this->confirmUninstall = $this->l('Are you sure you want to delete your details?');
          $this->tabClassName = 'CoinremitterWallets';         
          if (!count(Currency::checkPaymentCurrencies($this->id))) {
@@ -405,7 +405,7 @@
          ///////////////get cart value and convert into respective crypto value//////////////
          $cart = $this->context->cart;
          $total = (string)$cart->getOrderTotal(true, Cart::BOTH);
-
+         $validate_wallet = array();
          $currency = $this->context->currency;
          $invoice = new CR_Invoice();
          $add_param['fiat_symbol'] = $currency->iso_code;
@@ -427,22 +427,15 @@
             $add_param['coin'] = $wallet[$i]['coin'];
             
             $currency_data = $invoice->CR_getFiatToCrypToRate($add_param);
+            if(isset($currency_data['flag']) || $currency_data['flag'] == 1){
+               // $error_link = $this->context->link->getModuleLink('coinremitter','error',array('msg'=>$currency_data['msg']));
+               // Tools::redirect($error_link);
+               if($currency_data['data']['crypto_amount'] >= $wallet[$i]['minimum_value']){
+                  array_push($validate_wallet,$wallet[$i]);
+               }
+            }
             
-            if(!isset($currency_data['flag']) || $currency_data['flag'] != 1){
-               $error_link = $this->context->link->getModuleLink('coinremitter','error',array('msg'=>$currency_data['msg']));
-               Tools::redirect($error_link);
-            }
-
-            //if cart value is greater than minimum value of coin, than only that coin should display in dropdown
-            if($currency_data['data']['crypto_amount'] >= $wallet[$i]['minimum_value']){
-               $validate_wallet[$i]['coin'] = $wallet[$i]['coin'];
-               $validate_wallet[$i]['id'] = $wallet[$i]['id'];
-               $validate_wallet[$i]['coin_name'] = $wallet[$i]['coin_name'];
-            }
-
          }
-         
-         
          $this->context->smarty->assign(array(
             'action' => $this->context->link->getModuleLink($this->name, 'redirect', array(), true),  
             'wallets' => $validate_wallet,
@@ -518,6 +511,10 @@
          }
 
          $pending_amount = $total_amount - $paid_amt;
+         // if($paid_amt > $total_amount){
+         //    $pending_amount = $paid_amt - $total_amount;
+         // }
+         // die($pending_amount);
          $this->context->smarty->assign(array(
             'url' => $url,
             'invoice_id' => $invoice_id,
@@ -592,9 +589,9 @@
          }
 
          $pending_amount = $total_amount - $paid_amt;
-         if($pending_amount < 0){
-            $pending_amount = '0.00000000';
-         }
+         // if($pending_amount < 0){
+         //    $pending_amount = '0.00000000';
+         // }
          $this->context->smarty->assign(array(
             'url' => $url,
             'invoice_id' => $invoice_id,
