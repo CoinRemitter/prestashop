@@ -173,13 +173,9 @@ class CoinremitterWalletsController extends ModuleAdminController{
 
             return $this->displayWarning('Minimum value field is required'); 
             
-         }else if(!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $minimum_value)){
-                  
-            return $this->displayWarning('Invoice Minimum value field is invalid'); 
+         }else if($minimum_value < 0.0001 || $minimum_value >= 1000000){
 
-         }else if($minimum_value < 0.01 || $minimum_value >= 1000000){
-
-            return $this->displayWarning('Invoice Minimum value should be between 0.01 to 1000000');
+            return $this->displayWarning('Invoice Minimum value should be between 0.0001 to 1000000');
          }
 
 
