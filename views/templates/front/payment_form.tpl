@@ -3,7 +3,7 @@
 		<label class="mt-1">Select Cryptocurrency</label>
 		<select class="form-control form-control-select" name="coinremitter_select_coin"> 
 			{foreach from=$wallets item=wallet}
-				<option>{{$wallet['coin']}}</option>
+				<option>{{$wallet['coin_symbol']}}</option>
 			{/foreach}
 		</select>
 		<div class="mt-1 ml-3">{$description}</div>

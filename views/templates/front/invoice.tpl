@@ -48,7 +48,9 @@
                                     <tr>
                                        <td style="width: 300px;">
                                           <div class="cr-plugin-cart-img">
-                                             <a href=""><img src="{$product.image}" align=""></a>
+                                             <a target="_blank" href="{$product.product_link}">
+                                                <img src="{$product.image}" alt="{$product.name}" align="">
+                                             </a>
                                           </div>
                                           <div class="cr-plugin-cart-des">
                                              <p>{$product.name}</p>
@@ -95,7 +97,7 @@
                                  </li>
                                  <li>
                                     <span>Amount</span>
-                                    <p class="copyToClipboard" title="click to copy" data-copy-detail="{$totalAmount}">{$totalAmount} {$coin}</p>
+                                    <p class="copyToClipboard" title="click to copy" data-copy-detail="{$total_crypto_amount}">{$total_crypto_amount} {$coin}</p>
                                  </li>
                               </ul>
                            </div>
@@ -113,8 +115,8 @@
                         </div>
                         <div class="cr-plugin-history-footer">
                            <ul class="clearfix">
-                              <li>Paid <span id="paid-amt">0.00000000 {$coin}</span></li>
-                              <li>Pending <span id="pending-amt">{$totalAmount} {$coin}</span></li>
+                              <li>Paid <span id="paid-amt">{$total_paid_crypto_amount} {$coin}</span></li>
+                              <li>Pending <span id="pending-amt">{$total_pending_crypto_amount} {$coin}</span></li>
                            </ul>
                         </div>
                      </div>

@@ -11,11 +11,7 @@
                <table class="table">
                   <thead>
                      <tr>
-                        {if isset($invoice_id) && $invoice_id!= ""} 
-                           <th>Invoice Id</th>
-                        {else}
-                           <th>Address</th>
-                        {/if}
+                        <th>Address</th>
                         <th>
                            Base Currency
                         </th>
@@ -28,7 +24,7 @@
                         <th>
                            Created at
                         </th>
-                        {if isset($address) && $address != ""}
+                        {if $status == "Expired"}
                            <th>
                               Expire On
                            </th>
@@ -56,7 +52,7 @@
                         <td>
                            {$date_added}
                         </td>
-                        {if isset($address) && $address != ""}
+                        {if $status == "Expired"}
                            <td>
                               {$expire_on}
                            </td>
@@ -123,7 +119,7 @@
                                        {$phistory['amount']} {$coin}
                                     </td>
                                     <td>
-                                       {$phistory['confirmation']}
+                                       {$phistory['confirmations']}
                                     </td>
                                     <td>
                                        {$phistory['date']} (UTC)
@@ -131,7 +127,7 @@
                                  </tr>
                               {/foreach}
                            {else}
-                              <tr><td style="text-align: center;height: 50px;" colspan="4">Your Payment history will display here</td></tr>
+                              <tr><td style="text-align: center;height: 50px;" colspan="4">No Transaction Found</td></tr>
                            {/if}
                         </tbody>
                      </table>

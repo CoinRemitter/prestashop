@@ -1,23 +1,25 @@
-CoinRemitter plugin for Prestashop
+CoinRemitter Plugin For Prestashop
 ===
 
-Coinremitter is [crypto payments](http://coinremitter.com) service for Prestashop. Accept Bitcoin, Tron, Binance (BEP20), BitcoinCash, Ethereum, Litecoin, Dogecoin, Tether, Dash, Monero etc.
+Coinremitter is a [crypto payment processor](http://coinremitter.com). Accept Bitcoin, Bitcoin Cash, Litecoin, Dogecoin, Dash, Tron, Binance ,Tether USD ERC20,Tether USD TRC20 etc.View all supported currency [here](http://coinremitter.com/supported-currencies).
 
 
 
-**What Is Crypto Payment Processor?**
+**What Is Crypto Payment Gateway?**
 
-Crypto Payment Processor acts as a bridge between the merchant’s website and the cryptocurrency network, allowing the merchant to receive payments in the form of cryptocurrency.
+There are ample of Crypto Coins available on crypto payment gateways. You can pick one of them and create a wallet of that coins and purchase things from individual’s websites who are accepting payment in crypto coins though. Regardless, All these websites have their own API in order to accept payment from buyers.
+
+Apart from centralized currencies this option creates a traffic for sellers who are willing to do payments in crypto coins. In contrast, doing a payment in crypto coins offer buyers a great market  reputation and has left a foremost impact on sellers and it will also benefit to buyers & sellers if they choose **Coinremitter: Crypto Payment Gateway** as their payment method in doing a business in crypto coins.
 
 
-Requirements
+Prerequisites
 ---
 * For the integration process with coinremitter, users must need to have Prestashop version 1.7+
 * If you don't have a Coinremitter account then please consider making it one.  [Create Account ](https://coinremitter.com/signup)
 
-Plugin Installation Guide:
+Installation Of Plugin:
 ---
->PATH: SIdebar > Modules > Module manager > Upload a module > Select File 
+>PATH: Sidebar > Modules > Module manager > Upload a module > Select File 
 
 1. Download the zip file from this github repo extract it.
 2. Then open the extracted folder and find a folder named prestashop-master. Then rename it to **coinremitter** and compress it.
@@ -81,11 +83,10 @@ Create a Wallet:
 
 3. The wallet list page will open.
 4. To add a new wallet, click on the plus button located on the top right corner of the page.
-5. A new page will appear, where you'll see multiple options such as **Select Coin, API key, Password and Exchange Rate Multiplier and Minimum Invoice Value.**
+5. A new page will appear, where you'll see multiple options such as **API key, Password and Exchange Rate Multiplier and Minimum Invoice Value.**
 
     ![Coinremitter-Plugin-Add_wallet](https://coinremitter.com/assets/img/screenshots/prestashop/create_wallet_2.png)
 
-6. **SELECT COIN :**  Select the coin that you want to support in your store.
 7. **API KEY :** Go to the website of Coinremitter and login to your account and get your API key from there. If you have any trouble getting your password and API key then [click here](https://blog.coinremitter.com/how-to-get-api-key-and-password-of-coinremitter-wallet/) to get the understanding.
 8. **PASSWORD :** Type the password that you have set while creating a new wallet in your merchant panel.
 9. **EXCHANGE RATE MULTIPLIER:**

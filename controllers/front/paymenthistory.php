@@ -1,172 +1,213 @@
 <?php
 
-class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontController {
+class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontController
+{
 
-	public function init(){
+	public function init()
+	{
 
 		$this->ajax = true;
-      $post = Tools::getAllValues();
-      $db = Db::getInstance();
-      $invoice = new CR_Invoice();
-      date_default_timezone_set("UTC");
-		$responseData = array();
+		$post = Tools::getAllValues();
+		$db = Db::getInstance();
+		$invoice = new CR_Invoice();
+		date_default_timezone_set("UTC");
+
 		
-      if($post['address'] && $post['address'] && $post['coin'] && $post['coin']!=""){
+		if (!isset($post['address'])) {
+			echo json_encode(array('flag' => 0, 'msg' => 'Invalid address'));
+			parent::init();
+			return;
+		}
+		$address = $post['address'];
+		$sql = "SELECT * FROM coinremitter_orders WHERE `payment_address`= '" . $address . "'";
+		$order = $db->executes($sql);
+		if (empty($order)) {
+			echo json_encode(array('flag' => 0, 'msg' => 'Invalid address'));
+			parent::init();
+			return;
+		}
+		$order = $order[0];
 
-      	$address = $post['address'];
-      	$coin = $post['coin'];
-      	$sql="SELECT * FROM coinremitter_webhook WHERE address='".$address."'";
-         $webhookData = $db->executes($sql);
-         $sql = "SELECT * FROM coinremitter_wallets WHERE coin= '".$coin."'";
-         $result = $db->executes($sql);
-         $Wallets = $result[0];
+		$order_id = $order['order_id'];
+		if (!isset($order_id) || $order_id == '') {
+			echo json_encode(array('flag' => 0, 'msg' => 'Unauthorized access'));
+			parent::init();
+			return;
+		}
+		$systemOrder = new Order((int)$order_id);
 
-			$sql = "SELECT confirmations,paid_amount FROM coinremitter_webhook WHERE address= '".$address."'";
-			$resultWebhook = $db->executes($sql);
-			$total_paid1 = 0;
-			foreach ($resultWebhook as $rowWebhook) {
-				$total_paid1 += number_format($rowWebhook['paid_amount'],8,".","");
+		if (!Validate::isLoadedObject($systemOrder) || $systemOrder->id_customer != $this->context->customer->id || $systemOrder->module != "coinremitter") {
+			echo json_encode(array('flag' => 0, 'msg' => 'Unauthorized access'));
+			parent::init();
+			return;
+		}
+
+		$coin = $order['coin_symbol'];
+
+		if($order['order_status'] == ORDER_STATUS_CODE['expired']){
+			echo json_encode(array('flag' => 0, 'msg' => 'Order expired'));
+			parent::init();
+			return;
+		}
+		$sql = "SELECT * FROM coinremitter_wallets WHERE `coin_symbol`= '" . $coin . "' LIMIT 1";
+		$wallet = $db->executes($sql);
+		if (empty($wallet)) {
+			echo json_encode(array('flag' => 0, 'msg' => 'Invalid address'));
+			parent::init();
+			return;
+		}
+		$wallet = $wallet[0];
+
+		$pendingCryptoAmount = number_format($order['crypto_amount'] - $order['paid_crypto_amount'], 8, '.', '');
+		$order['transaction_meta'] = $order['transaction_meta'] ? json_decode($order['transaction_meta'], true) : [];
+		$order_status = $order['order_status'];
+		$address = $order['payment_address'];
+		$expire_on = $order['expiry_date'];
+		$date_diff = 0;
+		if ($expire_on != "") {
+			$current = strtotime(date("Y-m-d H:i:s"));
+			$expire_on = strtotime($expire_on);
+			$date_diff = $expire_on - $current;
+			$expire_on = date("M d, Y H:i:s", $expire_on);
+		}
+		$responseData = array(
+			'flag' => 1,
+			'msg' => 'Success',
+			'data' => [
+				"order_id" => $order['order_id'],
+				"now_time" => date('Y-m-d, H:i:s'),
+				"coin_symbol" => $order['coin_symbol'],
+				"status" => ORDER_STATUS[$order_status],
+				"status_code" => $order_status,
+				"transactions" => $invoice->prepareReturnTrxData($order['transaction_meta']),
+				"paid_amount" => $order['paid_crypto_amount'],
+				"pending_amount" => $pendingCryptoAmount,
+				"expire_on" => $expire_on,
+			]
+		);
+
+
+		if (empty($order['transaction_meta']) && $date_diff < 1 && $expire_on != "") {
+			$expireStatus = ORDER_STATUS_CODE['expired'];
+			$sql = "UPDATE `coinremitter_orders` SET `order_status`= $expireStatus WHERE `id`= '" . $order['id'] . "'";
+			$db->Execute($sql);
+			$responseData['data']['status'] = ORDER_STATUS[$expireStatus];
+			$responseData['data']['status_code'] = $expireStatus;
+			echo json_encode($responseData);
+			$this->orderCancel($order['order_id']);
+			parent::init();
+			return;
+		}
+
+		$requestParam = [
+			"api_key" => $wallet['api_key'],
+			"password" => $invoice->decrypt($wallet['password']),
+			"address" => $address,
+		];
+		$transactionsRes = $invoice->CR_getTransactionsByAddress($requestParam);
+
+		if (!isset($transactionsRes) || !$transactionsRes['success']) {
+			echo json_encode($responseData);
+			parent::init();
+			return;
+		}
+
+		$allTrx = $transactionsRes['data']['transactions'];
+		$trxMeta = $order['transaction_meta'];
+		$updateOrderRequired = false;
+		$total_paid = 0;
+		foreach ($allTrx as $trx) {
+			if (isset($trx['type']) && $trx['type'] == 'receive') {
+				// print_r($trx);
+				// die;
+				$fiat_amount = ($trx['amount'] * $order['fiat_amount']) / $order['crypto_amount'];
+				$minFiatAmount = $wallet['minimum_invoice_amount'];
+				if ($order['fiat_symbol'] != 'USD') {
+					$minFiatAmount = $wallet['minimum_invoice_amount'];
+				}
+				$minFiatAmount = number_format($minFiatAmount, 2, '.', '');
+				$fiat_amount = number_format($fiat_amount, 2, '.', '');
+				$currency = Currency::getIdByIsoCode($order['fiat_symbol']);
+				$currency = new Currency($currency);
+
+				$fiat_amount = Tools::convertPrice($fiat_amount,$currency,false);
+				if ($fiat_amount < $minFiatAmount) {
+					continue;
+				}
+
+				$transactionInfo = $invoice->checkTransactionExists($order['transaction_meta'], $trx['txid']);
+				if (empty($transactionInfo)) {
+					$updateOrderRequired = true;
+					$trxMeta[$trx['txid']] = $trx;
+				} else {
+					if ($transactionInfo['status_code'] != $trx['status_code']) {
+						$trxMeta[$trx['txid']] = $trx;
+						$updateOrderRequired = true;
+					}
+				}
+				if ($trx['status_code'] == 1) {
+					$total_paid += $trx['amount'];
+				}
 			}
-			$sql = "SELECT order_id,expire_on FROM coinremitter_payment WHERE address= '".$address."'";
-			$resultPayment = $db->executes($sql)[0];
-			$order = New Order((int)$resultPayment['order_id']);
-			$order_status = $order->current_state;
-			$expire_on = $resultPayment['expire_on'];
+		}
+		
+		if(!$updateOrderRequired){
+			echo json_encode($responseData);
+			parent::init();
+			return;
+		}
 
-			$date_diff = 0;
-			if($expire_on != ""){
-				$current = strtotime(date("Y-m-d H:i:s"));
-				$expire_on = strtotime($expire_on);
-				$date_diff = $expire_on - $current;
+		$truncationValue = TRUNCATION_VALUE;
+		if ($order['fiat_symbol'] != 'USD') {
+			$truncationValue = TRUNCATION_VALUE;
+		}
+		$truncationValue = number_format($truncationValue, 4, '.', '');
+		$total_fiat_paid = number_format(($total_paid * $order['fiat_amount']) / $order['crypto_amount'], 2, '.', '');
+		$totalFiatPaidWithTruncation = $total_fiat_paid + $truncationValue;
+
+		$status = $order_status;
+		if ($total_paid == $order['crypto_amount']) {
+			$status = ORDER_STATUS_CODE['paid'];
+		} else if ($total_paid > $order['crypto_amount']) {
+			$status = ORDER_STATUS_CODE['over_paid'];
+		} else if ($total_paid != 0 && $total_paid < $order['crypto_amount']) {
+			$status = ORDER_STATUS_CODE['under_paid'];
+			if ($totalFiatPaidWithTruncation > $order['fiat_amount']) {
+				$status = ORDER_STATUS_CODE['paid'];
 			}
-			if((string)$total_paid1 == 0 && $date_diff < 1 && $expire_on != "" && ($order_status == 10 || $order_status == 6)) {
+		}
+		$trxMeta = json_encode($trxMeta);
+		$sql = "UPDATE `coinremitter_orders` SET `paid_crypto_amount`=" . $total_paid . ",`paid_fiat_amount`=" . $total_fiat_paid . ",`order_status`=" . $status . ",`transaction_meta`='" . $trxMeta . "' WHERE payment_address='" . $order['payment_address'] . "'";
+		$db->query($sql);
 
-				$sql = "UPDATE coinremitter_order SET payment_status='Expired' WHERE address= '".$address."'";
-				$db->Execute($sql);
-				$sql = "UPDATE coinremitter_payment SET status='Expired' WHERE address= '".$address."'";
-				$db->Execute($sql);
-				$responseData['status'] = "expire";
-	         $responseData['order_id'] = $resultPayment['order_id'];
-				echo json_encode($responseData);
-				parent::init();
-				return;
-			}
-         
-         $transactionsArray = array();
-         foreach ($webhookData as $a) {
-            $transactionsArray[] = $a['transaction_id'];
-         }
-         $wallet_data = [
-            "api_key" => $Wallets['api_key'],
-            "password" => $invoice->decrypt($Wallets['password']),
-            "coin" => $Wallets['coin'],
-            "address" => $address,
-         ];
-         $transactions = $invoice->CR_get_transactions_by_address($wallet_data);
-         if($transactions['flag'] == 1){
-            foreach ($transactions['data'] as $transaction) {
-               $confirm = $transaction['confirmations'] < 3 ? $transaction['confirmations'] : 3;
-               if(in_array($transaction['id'], $transactionsArray)){
-                  $sql = "UPDATE coinremitter_webhook SET confirmations=".$confirm." WHERE transaction_id='".$transaction['id']."'";
-                  $db->query($sql);
-               } else {
-                  $sql = "INSERT INTO coinremitter_webhook(address, transaction_id, txId, paid_amount, coin, confirmations, paid_date, explorer_url) VALUES('".$transaction['address']."','".$transaction['id']."','".$transaction['txid']."','".$transaction['amount']."','".$transaction['coin_short_name']."','".$transaction['confirmations']."','".$transaction['date']."','".$transaction['explorer_url']."')";
-                  $db->Execute($sql);
-						$this->checkRaceCondition($transaction['id'], $db->Insert_ID());
-               }
-            }
-         }
-	      $sql = "SELECT confirmations,paid_amount FROM coinremitter_webhook WHERE address= '".$address."'";
-	      $resultWebhook = $db->executes($sql);
-	      $total_paid = 0;
-	      $total_paid1 = 0;
-	      foreach ($resultWebhook as $rowWebhook) {
-	         $total_paid1 += number_format($rowWebhook['paid_amount'],8,".","");
-	         if($rowWebhook['confirmations'] >= 3){
-	            $total_paid += number_format($rowWebhook['paid_amount'],8,".","");
-	         }
-	      }
-	      $sql = "SELECT crp_amount FROM coinremitter_order WHERE address= '".$address."'";
-	      $resultAmount = $db->executes($sql)[0];
-	      $total_paid = (string)$total_paid;
-	      $status = "Pending";
-	      if($resultAmount['crp_amount'] == $total_paid)
-	         $status = "Paid";
-	      else if($resultAmount['crp_amount'] < $total_paid)
-	         $status = "Over Paid";
-	      else if($total_paid != 0 && $resultAmount['crp_amount'] > $total_paid)
-	         $status = "Under Paid";
-	      if($status == "Paid" || $status == "Over Paid" || $status == "Under Paid"){
-	         $sql = "UPDATE coinremitter_order SET payment_status='$status' WHERE address= '".$address."'";
-				$db->Execute($sql);
-	         $sql = "UPDATE coinremitter_payment SET status='$status' WHERE address= '".$address."'";
-	         $db->Execute($sql);
-	      }
-
-	      $sql = "SELECT co.payment_status,co.crp_amount,cp.coin,co.order_id, cp.expire_on FROM coinremitter_order as co, coinremitter_payment as cp WHERE co.address=cp.address AND co.address= '".$address."'";
-	      $result = $db->executes($sql);
-	      
-	      if($result){
-	         $orderData = $result[0];
-	         $responseData['expire_on'] = $orderData['expire_on'];
-	         if($orderData['payment_status'] == "Paid" || $orderData['payment_status'] == 'Over Paid'){
-	            $responseData['status'] = "success";
-	            $responseData['order_id'] = $orderData['order_id'];
-	         } else {
-	            $totalPaid = 0;
-	            $total = $orderData['crp_amount'];
-	            $responseData['nopayment'] = 0;
-	            if($orderData['expire_on'] != ""){
-	               $responseData['expire_on'] = date("M d, Y H:i:s", strtotime($orderData['expire_on']));
-	               $responseData['curr'] = date("Y-m-d H:i:s");
-	            } else {               
-	               $responseData['nopayment'] = 1;
-	            }
-	            $responseData['total'] = $total;
-	            $sql = "SELECT * FROM coinremitter_webhook WHERE address= '".$address."'";
-	            $resultWebhook = $db->executes($sql);
-	            if($resultWebhook){
-	               $responseData['flag'] = 1;
-	               $responseData['data'] = array();
-	               $responseData['nopayment'] = 1;
-	               foreach ($resultWebhook as $row) {
-	                  $data = array();
-	                  $data['transaction'] = $row['transaction_id'];
-	                  $data['txid'] = substr($row['txId'],0,20)."...";
-	                  $data['amount'] = $row['paid_amount'];
-	                  $data['coin'] = $row['coin'];
-	                  $data['explorer_url'] = $row['explorer_url'];
-	                  $data['confirmations'] = $row['confirmations'];
-	                  $data['paid_date'] = date("M d, Y H:i:s", strtotime($row['paid_date']));
-	                  if($row['confirmations']>= 3)
-	                     $totalPaid += $row['paid_amount'];
-	                  array_push($responseData['data'], $data);
-	               }
-	            } else {
-	               $responseData['flag'] = 0;
-	               $responseData['msg'] = "No payment history found";
-	            }
-	            $responseData['totalPaid'] = number_format($totalPaid, 8, '.', '');
-	            $responseData['totalPending'] = number_format($total - $totalPaid, 8, '.', '');
-	            $responseData['coin'] = $orderData['coin'];
-	         }
-	      } else {
-	         $responseData['flag'] = 0;
-	         $responseData['msg'] = "Address not found";
-	      }
-      }
-      echo json_encode($responseData);
-      parent::init();
+		$responseData['data']['status'] = ORDER_STATUS[$status];
+		$responseData['data']['status_code'] = $status;
+		$responseData['data']['transactions'] = $invoice->prepareReturnTrxData(json_decode($trxMeta,true));
+		$responseData['data']['paid_amount'] = number_format($total_paid, 8, '.', '');
+		$responseData['data']['pending_amount'] = number_format($order['crypto_amount'] - $total_paid, 8, '.', '');
+		echo json_encode($responseData);
+		parent::init();
+		return;
 	}
 
-	public function checkRaceCondition($transaction_id, $last_id)
+	public function orderCancel($order_id)
 	{
-		$db = Db::getInstance();
-		$sql = "SELECT transaction_id FROM coinremitter_webhook WHERE transaction_id= '".$transaction_id."'";
-	   $result = $db->executes($sql);
-		if(count($result) > 1) {
-			$sql = "DELETE FROM coinremitter_webhook WHERE id= '".$last_id."'";
-	      $db->Execute($sql);
+
+		try {
+			$ostate = 6; //canceled order status
+			$order = new Order($order_id);
+			$history = new OrderHistory();
+			$history->id_order = $order->id;
+			$history->id_employee = (int) 1;
+			$history->id_order_state = (int) $ostate;
+			$history->save();
+			$history->changeIdOrderState($ostate, $order, true);
+			$history->sendEmail($order);
+			header("Refresh:0");
+		} catch (\Exception $ex) {
+			return ;
 		}
 	}
+
+	
 }

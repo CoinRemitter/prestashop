@@ -7,26 +7,6 @@
          <div class="form-wrapper">
             <div class="form-group">
                <label class="control-label col-lg-3">
-                  <span title="" data-toggle="tooltip" class="label-tooltip" data-original-title="Select Wallet Coin" data-html="true">Select  Coin</span>
-               </label>
-               <div class="col-lg-9">                      
-                  <select name="coin" class=" fixed-width-xl" id="id_tax_rules_group">
-                     {if isset($coins) && count($coins)} 
-                        {foreach from=$coins item=coin}
-                           {if isset($params['coin']) && $params['coin']==$coin['value']}
-                              <option value="{$coin['value']}" selected="">{$coin['label']}</option>
-                           {else}
-                              <option value="{$coin['value']}">{$coin['label']}</option>
-                           {/if}
-                        {/foreach}
-                     {else}
-                        <option>No coin.</option>
-                     {/if}
-                  </select>
-               </div>
-            </div>
-            <div class="form-group">
-               <label class="control-label col-lg-3">
                   <span title="" data-toggle="tooltip" class="label-tooltip" data-original-title="Api Key" data-html="true">Api Key </span>
                </label>
                <div class="col-lg-9">                      
@@ -57,7 +37,7 @@
                   <span title="" data-toggle="tooltip" class="label-tooltip" data-original-title="Invoice Minimum value" data-html="true">Invoice Minimum value </span>
                </label>
                <div class="col-lg-9">                      
-                  <input class="form-control " type="text" name="minimum_value" value="{$params['minimum_value']}">
+                  <input class="form-control " type="text" name="minimum_invoice_amount" value="{$params['minimum_invoice_amount']}">
                   <p class="help-block">
                      The amount must be equal to or more than the minimum invoice value in order to create an invoice. For example, if the minimum invoice value is 1, the amount in the invoice must be equal to or more than that amount.
                   </p>

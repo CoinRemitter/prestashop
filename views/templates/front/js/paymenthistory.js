@@ -1,9 +1,18 @@
 var interval = null;
+var check_payment_interval = null;
 var BASE_URL = "";
-$(document).ready(function() {
+const ORDER_STATUS = {
+	'pending': 0,
+	'paid': 1,
+	'under_paid': 2,
+	'over_paid': 3,
+	'expired': 4,
+	'cancelled': 5,
+}
+$(document).ready(function () {
     ajaxCall();
     interval = setInterval(dateTimer, 1000);
-    setInterval(ajaxCall, 5000);
+    check_payment_interval = setInterval(ajaxCall, 10000);
     BASE_URL = $("#image_path").val();
 });
 
@@ -36,15 +45,17 @@ function dateDiff(date) {
 
 function dateTimer() {
     if ($("#expire_on").val() != '') {
+
         var current = getUTCTime();
         var expire = new Date($("#expire_on").val()).getTime();
         var date_diff = expire - current;
         var hours = Math.floor(date_diff / (1000 * 60 * 60));
         var minutes = Math.floor((date_diff % (1000 * 60 * 60)) / (1000 * 60));
         var seconds = Math.floor((date_diff % (1000 * 60)) / 1000);
+        console.log(hours, minutes, seconds);
         if (hours < 0 && minutes < 0 && seconds < 0) {
             var order_id = $("#order_id").val();
-            funExpire(order_id);
+            window.open("index.php?controller=invoice&fc=module&module=coinremitter&order_id=" + order_id + "&action=cancel", "_SELF");
             return;
         } else {
             $("#ehours").html(('0' + hours).slice(-3));
@@ -61,54 +72,69 @@ function ajaxCall() {
         url: "index.php?controller=paymenthistory&fc=module&module=coinremitter",
         type: "POST",
         data: { address, coin },
-    }).done(function(result) {
+    }).done(function (result) {
         result = JSON.parse(result);
-        if (result.status == "expire") {
-            funExpire(result.order_id);
-        } else if (result.status == "success") {
-            window.open("index.php?controller=invoice&fc=module&module=coinremitter&order_id=" + result.order_id + "&action=success", "_SELF");
-        } else {
-            if (result.nopayment == 1) {
-                if ($('#paymentStatus').is(':empty')) {
-                    $("#timerStatus").empty();
-                    clearInterval(interval);
-                    $("#paymentStatus").append("<span style='margin-top: 5px;'>Awaiting Payment</span>");
-                    $("#paymentStatus").append("<div></div>");
-                }
+        if (!result.flag) {
+            clearInterval(interval);
+            clearInterval(check_payment_interval);
+            return;
+        }
+        const resData = result.data
+        $("#paid-amt").text(resData.paid_amount + " " + resData.coin_symbol);
+        $("#pending-amt").text(resData.pending_amount + " " + resData.coin_symbol);
+        if (resData.status_code == ORDER_STATUS.paid || resData.status_code == ORDER_STATUS.over_paid) {
+            clearInterval(interval);
+            clearInterval(check_payment_interval);
+            window.open("index.php?controller=invoice&fc=module&module=coinremitter&order_id=" + resData.order_id + "&action=success", "_SELF");
+            return;
+        }
+        if (resData.status_code == ORDER_STATUS.expired) {
+            clearInterval(interval);
+            clearInterval(check_payment_interval);
+            window.open("index.php?controller=invoice&fc=module&module=coinremitter&order_id=" + resData.order_id + "&action=cancel", "_SELF");
+            return;
+        }
+        console.log("Inside");
+        if (resData.status_code == ORDER_STATUS.pending) {
+            
+            if (Object.keys(resData.transactions).length) {
+                clearInterval(interval);
+                $("#paymentStatus").empty();
+                $("#timerStatus").html("<span>Payment Status : " + resData.status + "</span>");
             } else {
-                if ($('#timerStatus').is(':empty')) {
-                    $("#timerStatus").append("<span>Your order expired in</span>");
-                    $("#timerStatus").append('<ul><li><span id="ehours">00</span></li><li><span id="eminutes">00</span></li><li><span id="eseconds">00</span></li></ul>');
+                $("#expire_on").val(resData.expire_on);
+                $("#paymentStatus").html("<span style='margin-top: 5px;'>Awaiting Payment</span><div></div>");
+                if($("#timerStatus").html() == ''){
+                    $("#timerStatus").html('<span>Your order expired in</span><ul><li><span id="ehours">00</span></li><li><span id="eminutes">00</span></li><li><span id="eseconds">00</span></li></ul>');
                 }
             }
-            $("#expire_on").val(result.expire_on);
-            $("#paid-amt").text(result.totalPaid + " " + result.coin);
-            $("#pending-amt").text(result.totalPending + " " + result.coin);
-            var paymenthistory = "";
-            if (result.flag == 1) {
-                $.each(result.data, function(index, payment) {
+        }else{
+            $("#timerStatus").html("<span>Payment Status : " + resData.status + "</span>");
+        }
+
+        var paymenthistory = '<div class="cr-plugin-history-box no-history-found"><div class="cr-plugin-history"><div class="cr-plugin-history-des" style="text-align: center;"><p>No Transaction Found</p></div></div></div>';
+        if (Object.keys(resData.transactions).length > 0) {
+            paymenthistory = '';
+            for (const key in resData.transactions) {
+                if (Object.prototype.hasOwnProperty.call(resData.transactions, key)) {
+                    const payment = resData.transactions[key];
                     var confirmations = '';
-                    if (payment.confirmations >= 3)
+                    if (payment.status_code == 1)
                         confirmations = '<div class="cr-plugin-history-ico"><img src="' + BASE_URL + 'check.png" title="Payment Confirmed"/></div>';
                     else
                         confirmations = '<div class="cr-plugin-history-ico"><img src="' + BASE_URL + 'error.png" title="' + payment.confirmations + ' confirmation(s)"/></div>';
-
-                    paymenthistory += '<div class="cr-plugin-history-box"><div class="cr-plugin-history">' + confirmations + '<div class="cr-plugin-history-des"><span><a href="' + payment.explorer_url + '" target="_blank">' + payment.txid + '</a></span><p>' + payment.amount + ' ' + payment.coin + '</p></div><div class="cr-plugin-history-date"><span title="' + payment.paid_date + ' (UTC)">' + dateDiff(payment.paid_date) + '</span></div></div></div>';
-                });
-            } else {
-                paymenthistory = '<div class="cr-plugin-history-box no-history-found"><div class="cr-plugin-history"><div class="cr-plugin-history-des" style="text-align: center;"><p>' + result.msg + '</p></div></div></div>';
+        
+                    paymenthistory += '<div class="cr-plugin-history-box"><div class="cr-plugin-history">' + confirmations + '<div class="cr-plugin-history-des"><span><a href="' + payment.explorer_url + '" target="_blank">' + payment.txid.slice(0,16) + '...</a></span><p>' + payment.amount + ' ' + resData.coin_symbol + '</p></div><div class="cr-plugin-history-date"><span title="' + payment.date + ' (UTC)">' + dateDiff(payment.date) + '</span></div></div></div>';
+                }
             }
-            $("#cr-plugin-history-list").html(paymenthistory);
         }
+        $("#cr-plugin-history-list").html(paymenthistory);
         return true;
     });
 }
 
-function funExpire(order_id) {
-    window.open("index.php?controller=invoice&fc=module&module=coinremitter&order_id=" + order_id + "&action=cancel", "_SELF");
-}
 
-$(".copyToClipboard").click(function() {
+$(".copyToClipboard").click(function () {
     $(".cr-plugin-copy").fadeIn(1000).delay(1500).fadeOut(1000);
     var value = $(this).attr("data-copy-detail");
     var $temp = $("<input>");

@@ -1,341 +1,327 @@
 <?php
-use Symfony\Component\Translation\Translator;
-use Symfony\Component\Translation\TranslatorInterface;   
 
-class CoinremitterWalletsController extends ModuleAdminController{
-   public $api_url = '' ;
+use Symfony\Component\Translation\Translator;
+use Symfony\Component\Translation\TranslatorInterface;
+
+class CoinremitterWalletsController extends ModuleAdminController
+{
+   public $api_url = '';
    public $success_msg = '';
    public $invoice = '';
 
-   public function __construct(){
+   public function __construct()
+   {
       parent::__construct();
       $this->success_msg = $this->_getSession()->get('displaySuccess');
       $this->invoice = new CR_Invoice();
-      
    }
-   public function init(){
+   public function init()
+   {
       parent::init();
       $this->name = 'coinremitter';
       $this->bootstrap = true;
    }
-   public function initContent(){
+   public function initContent()
+   {
 
       parent::initContent();
 
-      //check if is_valid key is exists or not in coinremitter_wallet table if not exists then add
-      $this->checkIsValidColumnExists();
-
-      //update all wallets' balances
-      $this->update_wallet_balance();
-
-      if(Tools::isSubmit('create_wallet')) {
+      if (Tools::isSubmit('create_wallet')) {
          $this->AddWallet();
       }
 
-      if(Tools::isSubmit('update_wallet')) {
+      if (Tools::isSubmit('update_wallet')) {
          $this->UpdateWallet();
       }
       $wallets  = $this->getWallets();
       $action = Tools::getValue('action');
       $post_param = Tools::getAllValues();
 
-      if($action){
-         if($action == 'create'){
+      if ($action) {
+         if ($action == 'create') {
             $p['wallets_api'] = '';
-            $p['wallet_password'] ='';
+            $p['wallet_password'] = '';
             $p['coinremitter_ex_rate'] = '1';
-            $p['minimum_value'] = '0.01'; 
-            $coins =$this->getSelectCoinList();
+            $p['minimum_invoice_amount'] = '0';
             $this->context->smarty->assign(array(
-               'coins'=>$coins,
-               'params'=>$p,
+               'params' => $p,
             ));
             $this->setTemplate('create.tpl');
-         }else if ($action == 'edite') {
+         } else if ($action == 'edite') {
             $id = Tools::getValue('id');
             $wallets = $this->getWalletById($id);
             $wallets['password'] = $this->invoice->decrypt($wallets['password']);
             $this->context->smarty->assign(array(
-              'wallet'=>$wallets,
+               'wallet' => $wallets,
             ));
             $this->setTemplate('edite.tpl');
-         }else if ($action == 'delete') {
+         } else if ($action == 'delete') {
             $id = Tools::getValue('id');
             $this->getWalletDelete($id);
-         }else if($action == 'save'){
-            $coins =$this->getSelectCoinList();
+         } else if ($action == 'save') {
             $this->context->smarty->assign(array(
-               'coins'=>$coins,
-               'params'=>$post_param,
+               'params' => $post_param,
             ));
             $this->setTemplate('create.tpl');
-         }else if($action == 'up'){
-
+         } else if ($action == 'up') {
+            // print_r($post_param);
+            // die;
             $id = Tools::getValue('id');
-            $wallets = $this->getWalletById($id);
             $up['api_key'] = $post_param['wallets_api'];
             $up['password'] = $post_param['wallet_password'];
             $up['exchange_rate_multiplier'] = $post_param['coinremitter_ex_rate'];
-            $up['minimum_value'] = $post_param['minimum_value'];
-            $up['id'] =$id; 
-            $up['coin'] = $wallets['coin'];
+            $up['minimum_invoice_amount'] = $post_param['minimum_invoice_amount'];
+            $up['id'] = $id;
             $this->context->smarty->assign(array(
-              'wallet'=>$up,
+               'wallet' => $up,
             ));
             $this->setTemplate('edite.tpl');
          }
-      }else{
+      } else {
+         
          $msg = '';
-         if($this->success_msg){
+         if ($this->success_msg) {
             $msg = $this->displaySuccess($this->success_msg);
          }
+         $baseFiatCurrency = $this->context->currency->iso_code;
          foreach ($wallets as &$wallet) {
-            if($wallet['is_valid'] == 1){
-               $balance = number_format($wallet['balance'],8,'.','');
-            }else{
-               $balance = '<span title="Invalid API key or password. Please check credential again."><i class="material-icons">error</i></span>';
+
+            $postData = [
+               'api_key' => $wallet['api_key'],
+               'password' => $this->invoice->decrypt($wallet['password']),
+            ];
+            $result = $this->invoice->CR_getBalance($postData);
+            $balance = '<span title="Invalid API key or password. Please check credential again."><i class="material-icons">error</i></span>';
+            if ($result['success']) {
+               $wData = $result['data'];
+               if($wallet['base_fiat_symbol'] != $baseFiatCurrency){
+                  $fiatToCryptoConversionParam = array(
+                     'crypto'=>$wallet['coin_symbol'],
+                     'fiat'=>$wallet['base_fiat_symbol'],
+                     'fiat_amount'=>$wallet['minimum_invoice_amount']
+                  );
+                  $fiatToCryptoConversion = $this->invoice->CR_getFiatToCryptoRate($fiatToCryptoConversionParam);
+                  
+                  $cryptoToFiatConversionParam = array(
+                     'crypto'=>$wallet['coin_symbol'],
+                     'crypto_amount'=>$fiatToCryptoConversion['data'][0]['price'],
+                     'fiat'=>$baseFiatCurrency
+                  );
+                  $cryptoToFiatConversionRes = $this->invoice->CR_getCryptoToFiatRate($cryptoToFiatConversionParam);
+                  if($cryptoToFiatConversionRes['success']){
+                     $minimumInvAmountInFiat = $cryptoToFiatConversionRes['data'][0]['amount'];
+                     $minimumInvAmountInFiat = number_format($minimumInvAmountInFiat, 2, '.', '');
+                     $wallet['minimum_invoice_amount'] = $minimumInvAmountInFiat;
+                     $walletId = $wallet['id'];
+                     $updateQuery = "UPDATE `coinremitter_wallets` SET minimum_invoice_amount=$minimumInvAmountInFiat,base_fiat_symbol='$baseFiatCurrency' WHERE id = $walletId";
+                     $db = Db::getInstance();
+                     $db->Execute($updateQuery);
+                  }
+               }
+               $balance = $wData['balance'];
             }
             $wallet['balance'] = $balance;
+
          }
          $this->_getSession()->remove('displaySuccess');
          $this->context->smarty->assign(array(
-            'success_msg' =>$msg,
-            'wallets'=>$wallets,
-            'img_path' => Media::getMediaPath(_PS_MODULE_DIR_.$this->name.'/img/'),
-            'webhook_url' => $this->context->link->getModuleLink('coinremitter','webhook'),
+            'success_msg' => $msg,
+            'wallets' => $wallets,
+            'fiat_currency' => $this->context->currency->iso_code,
+            'img_path' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/img/'),
+            'webhook_url' => $this->context->link->getModuleLink('coinremitter', 'webhook'),
          ));
          $this->setTemplate('index.tpl');
       }
    }
-   public function getWallets(){
-      $wtable = 'coinremitter_wallets';
-      $bp_sql = "SELECT * FROM $wtable";
+   public function getWallets()
+   {
+      $bp_sql = "SELECT * FROM coinremitter_wallets";
       $results = Db::getInstance()->executes($bp_sql);
       return $results;
-  }
-  public function getWalletById($id){
-      $wtable = 'coinremitter_wallets';
-      $bp_sql = "SELECT * FROM $wtable WHERE id = '$id' LIMIT 1";
+   }
+   public function getWalletById($id)
+   {
+      $bp_sql = "SELECT * FROM coinremitter_wallets WHERE id = '$id' LIMIT 1";
       $results = Db::getInstance()->executes($bp_sql);
-      if (count($results) == 1){
+      if (count($results) == 1) {
          return $results[0];
       }
    }
 
-  public function getWalletDelete($id){
-      $wtable = 'coinremitter_wallets';
-      $bp_d = "DELETE FROM $wtable WHERE id = '$id'";
+   public function getWalletDelete($id)
+   {
+      $bp_d = "DELETE FROM coinremitter_wallets WHERE id = '$id'";
       $db = Db::getInstance();
       $db->Execute($bp_d);
       $this->_getSession()->set('displaySuccess', 'Wallet Delete Successfully');
-      Tools::redirectAdmin('index.php?controller=CoinremitterWallets&token='.Tools::getValue('token'));
+      Tools::redirectAdmin('index.php?controller=CoinremitterWallets&token=' . Tools::getValue('token'));
    }
-   public function AddWallet(){
+   public function AddWallet()
+   {
       $post_param = Tools::getAllValues();
-
-      
       $postData = [
-         'api_key'=>$post_param['wallets_api'],
-         'password'=>$post_param['wallet_password'],
-         'coin'=>$post_param['coin'],
+         'api_key' => $post_param['wallets_api'],
+         'password' => $post_param['wallet_password'],
       ];
       $result = $this->invoice->CR_getBalance($postData);
-      /*download wallet image if not exist*/
-      $coin_image_path = dirname(__DIR__,2).'/img/'.strtolower($post_param['coin']).'.png';
-      if(!file_exists($coin_image_path)){
-         $url = "https://coinremitter.com/assets/img/home-coin/coin/".strtolower($post_param['coin']).".png";
-         if (getimagesize($url)) {
-            copy($url,$coin_image_path);
-         }
-      }
-    
-      if($result['flag'] == 1){
 
-         //validation
-         $coinremitter_ex_rate_value = $post_param['coinremitter_ex_rate'];
+      if (!$result['success']) {
+         return $this->displayWarning($result['msg']);
+      }
+
+      //validation
+      $coinremitter_ex_rate_value = $post_param['coinremitter_ex_rate'];
+
+      if ($coinremitter_ex_rate_value == '') {
+
+         return $this->displayWarning('Exchange rate multiplier field is required');
+      } else if (!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $coinremitter_ex_rate_value)) {
+
+         return $this->displayWarning('Exchange rate multiplier field is invalid');
+      } else if ($coinremitter_ex_rate_value <= 0 || $coinremitter_ex_rate_value >= 101) {
+
+         return $this->displayWarning('Exchange rate multiplier field should be between 0 to 101');
+      }
+
+      $minimum_value = $post_param['minimum_invoice_amount'];
+
+      if ($minimum_value == '') {
+         return $this->displayWarning('Minimum value field is required');
+      }
+
+      $wdata = $result['data'];
+      $baseFiatCurrency = $this->context->currency->iso_code;
+      $coinData = $this->invoice->CR_getCoin($wdata['coin_symbol']);
+      if(empty($coinData)){
+         return $this->displayWarning('Coin not found');
+      }
       
-         if($coinremitter_ex_rate_value == ''){
-
-            return $this->displayWarning('Exchange rate multiplier field is required'); 
-            
-         }else if(!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $coinremitter_ex_rate_value)){
-                  
-            return $this->displayWarning('Exchange rate multiplier field is invalid');
-            
-         }else if($coinremitter_ex_rate_value <= 0 || $coinremitter_ex_rate_value >= 101){
-
-            return $this->displayWarning('Exchange rate multiplier field should be between 0 to 101');
+      $unit_fiat_amount = $coinData['price_in_usd'];
+      if(strtoupper($baseFiatCurrency) != 'USD'){
+         $conversionParam = array(
+            'crypto'=>$wdata['coin_symbol'],
+            'crypto_amount'=>1,
+            'fiat'=>$baseFiatCurrency
+         );
+         $convertionRes = $this->invoice->CR_getCryptoToFiatRate($conversionParam);
+         if(!$convertionRes['success']){
+            return $this->displayWarning($convertionRes['msg']);
          }
-
-         $minimum_value = $post_param['minimum_value'];
-
-         if($minimum_value == ''){
-
-            return $this->displayWarning('Minimum value field is required'); 
-            
-         }else if($minimum_value < 0.0001 || $minimum_value >= 1000000){
-
-            return $this->displayWarning('Invoice Minimum value should be between 0.0001 to 1000000');
-         }
-
-
-         $wdata = $result['data']; 
-         $coin_name = $wdata['coin_name'];
-         $wallets_name =$wdata['wallet_name'];
-         $wallet_table = 'coinremitter_wallets';
-         $coin = isset($post_param['coin'])?$post_param['coin']:'';
-         $api_key = $post_param['wallets_api'];
-         $password = $this->invoice->encrypt($post_param['wallet_password']);
-         $balance = $wdata['balance'];
-         $wallet_add = "INSERT INTO $wallet_table (coin,coin_name,name,api_key,password,balance,exchange_rate_multiplier,minimum_value,date_added) VALUES ('$coin','$coin_name','$wallets_name','$api_key','$password','$balance','$coinremitter_ex_rate_value','$minimum_value',NOW())";
-         $db = Db::getInstance();
-         $db->Execute($wallet_add);
-         $this->_getSession()->set('displaySuccess', 'Wallet Add Successfully');
-         Tools::redirectAdmin('index.php?controller=CoinremitterWallets&token='.Tools::getValue('token'));    
-      }else{
-         $this->displayWarning($result['msg']);    
+         $unit_fiat_amount = $convertionRes['data'][0]['amount'];
       }
+      $minimumInvAmountInFiat = $wdata['minimum_deposit_amount'] * $unit_fiat_amount;
+      $minimumInvAmountInFiat = number_format($minimumInvAmountInFiat, 2, '.', '');
+      if($minimum_value < $minimumInvAmountInFiat){
+         return $this->displayWarning('Minimum value should be greater than or equal to '.$minimumInvAmountInFiat.' '.$baseFiatCurrency);
+      }
+      
+      $coin_name = $wdata['coin'];
+      $coin_symbol = $wdata['coin_symbol'];
+      $wallets_name = $wdata['wallet_name'];
+      $api_key = $post_param['wallets_api'];
+      $password = $this->invoice->encrypt($post_param['wallet_password']);
+
+      $coin_image_path = dirname(__DIR__, 2) . '/img/' . strtolower($wdata['coin_symbol']) . '.png';
+      if (!file_exists($coin_image_path)) {
+         $url = $wdata['coin_logo'];
+         if (getimagesize($url)) {
+            copy($url, $coin_image_path);
+         }
+      }
+      
+      $wallet_add = "INSERT INTO coinremitter_wallets (wallet_name,coin_symbol,coin_name,api_key,password,minimum_invoice_amount,exchange_rate_multiplier,unit_fiat_amount,base_fiat_symbol) VALUES ('$wallets_name','$coin_symbol','$coin_name','$api_key','$password','$minimum_value','$coinremitter_ex_rate_value',$unit_fiat_amount,'$baseFiatCurrency')";
+      $db = Db::getInstance();
+      $db->Execute($wallet_add);
+
+      $this->_getSession()->set('displaySuccess', 'Wallet Add Successfully');
+      Tools::redirectAdmin('index.php?controller=CoinremitterWallets&token=' . Tools::getValue('token'));
    }
 
-   public function UpdateWallet(){
+   public function UpdateWallet()
+   {
       $post_param = Tools::getAllValues();
 
-      $wallet_id = $post_param['wallet_id'];
+      $wallet_id = $post_param['id'];
       $wallet = $this->getWalletById($wallet_id);
-    
-      if($wallet){
-         $postData = [
-            'api_key'=>$post_param['wallets_api'],
-            'password'=>$post_param['wallet_password'],
-            'coin'=>$wallet['coin'],
-         ];
+      if (!$wallet) {
+         return Tools::redirectAdmin('index.php?controller=CoinremitterWallets&token=' . Tools::getValue('token'));
+      }
 
-         $result = $this->invoice->CR_getBalance($postData);
-         $wallet_table = 'coinremitter_wallets';
-         if($result['flag'] == 1){
+      $postData = [
+         'api_key' => $post_param['wallets_api'],
+         'password' => $post_param['wallet_password'],
+      ];
 
-            //validation
-            $coinremitter_ex_rate_value = $post_param['coinremitter_ex_rate'];
-      
-            if($coinremitter_ex_rate_value == ''){
+      $result = $this->invoice->CR_getBalance($postData);
 
-               return $this->displayWarning('Exchange rate multiplier field is required'); 
-               
-            }else if(!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $coinremitter_ex_rate_value)){
-                     
-               return $this->displayWarning('Exchange rate multiplier field is invalid');
-               
-            }else if($coinremitter_ex_rate_value <= 0 || $coinremitter_ex_rate_value >= 101){
+      if(!$result['success']){
+         return $this->displayWarning($result['msg']);
+      }
+      $wdata = $result['data'];
+      //validation
+      $coinremitter_ex_rate_value = $post_param['coinremitter_ex_rate'];
 
-               return $this->displayWarning('Exchange rate multiplier field should be between 0 to 101');
-            }
+      if ($coinremitter_ex_rate_value == '') {
+         return $this->displayWarning('Exchange rate multiplier field is required');
+      } else if (!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $coinremitter_ex_rate_value)) {
+         return $this->displayWarning('Exchange rate multiplier field is invalid');
+      } else if ($coinremitter_ex_rate_value <= 0 || $coinremitter_ex_rate_value >= 101) {
+         return $this->displayWarning('Exchange rate multiplier field should be between 0 to 101');
+      }
 
-            $minimum_value = $post_param['minimum_value'];
+      $minimum_value = $post_param['minimum_invoice_amount'];
+      if ($minimum_value == '') {
+         return $this->displayWarning('Minimum value field is required');
+      } else if (!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $minimum_value)) {
+         return $this->displayWarning('Minimum value field is invalid');
+      }
 
-            if($minimum_value == ''){
+      $baseFiatCurrency = $this->context->currency->iso_code;
+      $coinData = $this->invoice->CR_getCoin($wdata['coin_symbol']);
+      if(empty($coinData)){
+         return $this->displayWarning('Coin not found');
+      }
 
-               return $this->displayWarning('Minimum value field is required'); 
-               
-            }else if(!preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $minimum_value)){
-                     
-               return $this->displayWarning('Minimum value field is invalid'); 
-
-            }else if($minimum_value < 0.01 || $minimum_value >= 1000000){
-
-               return $this->displayWarning('Invoice Minimum value should be between 0.01 to 1000000');
-            }
-
-            $wdata = $result['data']; 
-            $api_key = $post_param['wallets_api'];
-            $password = $this->invoice->encrypt($post_param['wallet_password']);
-            $balance = $wdata['balance'];
-            $is_valid = 1;
-            $wallet_name = $wdata['wallet_name'];
-            $wallet_up = "UPDATE $wallet_table SET api_key = '$api_key',password = '$password',is_valid = $is_valid,name='$wallet_name',balance='$balance',exchange_rate_multiplier='$coinremitter_ex_rate_value',minimum_value='$minimum_value' WHERE id = '$wallet_id'";
-            $db = Db::getInstance();
-            $db->Execute($wallet_up);
-            $this->_getSession()->set('displaySuccess', 'Wallet Updated Successfully');
-            Tools::redirectAdmin('index.php?controller=CoinremitterWallets&token='.Tools::getValue('token'));    
-         }else{
-            //if wallet deleted from coinremitter merchant site then update balance as 0 and is_valid = 0 in prestashop db 
-            if(is_array($wallet)){
-               $wallet['password'] = $this->invoice->decrypt($wallet['password']);
-               $get_bal_res = $this->invoice->CR_getBalance($wallet);
-               if(isset($get_bal_res['flag']) && $get_bal_res['flag'] != 1 ){
-                  $balance = 0;
-                  $is_valid = 0;
-                  Db::getInstance()->Execute("UPDATE $wallet_table SET balance='$balance',is_valid = $is_valid WHERE id = '$wallet_id'");
-               }
-            }
-            $this->displayWarning($result['msg']);    
+      $unit_fiat_amount = $coinData['price_in_usd'];
+      if(strtoupper($baseFiatCurrency) != 'USD'){
+         $conversionParam = array(
+            'crypto'=>$wdata['coin_symbol'],
+            'crypto_amount'=>1,
+            'fiat'=>$baseFiatCurrency
+         );
+         $convertionRes = $this->invoice->CR_getCryptoToFiatRate($conversionParam);
+         if(!$convertionRes['success']){
+            return $this->displayWarning($convertionRes['msg']);
          }
+         $unit_fiat_amount = $convertionRes['data'][0]['amount'];
       }
+      $minimumInvAmountInFiat = $wdata['minimum_deposit_amount'] * $unit_fiat_amount;
+      $minimumInvAmountInFiat = number_format($minimumInvAmountInFiat, 2, '.', '');
+      if($minimum_value < $minimumInvAmountInFiat){
+         return $this->displayWarning('Minimum value should be greater than or equal to '.$minimumInvAmountInFiat.' '.$baseFiatCurrency);
+      }
+
+      $api_key = $post_param['wallets_api'];
+      $password = $this->invoice->encrypt($post_param['wallet_password']);
+      $wallet_name = $wdata['wallet_name'];
+      $coin_symbol = $wdata['coin_symbol'];
+      $coin_name = $wdata['coin'];
+
+      $updateQuery = "UPDATE `coinremitter_wallets` SET wallet_name='$wallet_name',coin_symbol='$coin_symbol',coin_name='$coin_name',api_key = '$api_key',password = '$password',exchange_rate_multiplier=$coinremitter_ex_rate_value,minimum_invoice_amount=$minimum_value,unit_fiat_amount=$unit_fiat_amount,base_fiat_symbol='$baseFiatCurrency' WHERE id = '$wallet_id'";
+      $db = Db::getInstance();
+      $db->Execute($updateQuery);
+      $this->_getSession()->set('displaySuccess', 'Wallet Updated Successfully');
+      Tools::redirectAdmin('index.php?controller=CoinremitterWallets&token=' . Tools::getValue('token'));
    }
-  
-   public function getSelectCoinList(){
-      $walletArr =[];
-      $results = $this->getWallets();
-      if ($results) {
-         foreach ($results as $key => $value) {
-            array_push($walletArr, $value['coin']);
-         }   
-      }
-      $coin = [];
-      $data = $this->invoice->CR_getCoin();
-      if ($data) {
-         foreach ($data as $key => $value) {
-            $c['value'] = $value['symbol'];
-            $c['label'] = $value['symbol'];
-            if ($walletArr) {
-               if (!in_array($c['value'], $walletArr)) {
-                  array_push($coin, $c);   
-               }
-            }else{
-               array_push($coin, $c);
-            }
-         }    
-      }
-      return $coin;
-   }
-  
-   public function displaySuccess($information){
-      $output = '<div class="alert alert-success" role="alert"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true"><i class="material-icons">close</i></span></button><div class="alert-text"><p>'.$information.'</p></div></div>';
+
+   public function displaySuccess($information)
+   {
+      $output = '<div class="alert alert-success" role="alert"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true"><i class="material-icons">close</i></span></button><div class="alert-text"><p>' . $information . '</p></div></div>';
       return $output;
    }
    private function _getSession()
    {
       return \PrestaShop\PrestaShop\Adapter\SymfonyContainer::getInstance()->get('session');
-   }
-  
-   public function update_wallet_balance(){
-      $wallets  = $this->getWallets();
-      if($wallets){
-         $wallet_table = 'coinremitter_wallets';
-         foreach ($wallets as $w) {
-            $postData = [
-               'api_key'=>$w['api_key'],
-               'password'=>$this->invoice->decrypt($w['password']),
-               'coin'=>$w['coin'],
-            ];
-            $wallet_id = $w['id'];
-            $result = $this->invoice->CR_getBalance($postData);
-            if($result['flag'] == 1){
-               $balance = $result['data']['balance'];
-               $is_valid = 1;
-            }else{
-               $balance = 0;
-               $is_valid = 0;
-            }
-            $wallet_up = "UPDATE ".$wallet_table." SET `balance` = '".$balance."',`is_valid` = ".$is_valid." WHERE id = ".$wallet_id;
-            $db = Db::getInstance();
-            $db->Execute($wallet_up);
-         }
-      }
-   }
-
-   protected function checkIsValidColumnExists(){
-      if(!Db::getInstance()->Execute('SELECT `is_valid` from `coinremitter_wallets`')){
-         Db::getInstance()->Execute("ALTER TABLE coinremitter_wallets ADD COLUMN `is_valid` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1 on valid wallet else 0' AFTER `password`");
-      }
    }
 }

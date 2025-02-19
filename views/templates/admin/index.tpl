@@ -21,14 +21,13 @@
 	<div class="panel-body">
 		<table class="table grid-table">
 			<thead>
-				<th>{l s="ID" mod='quickupdate'}</th>
 				<th>{l s="Logo" mod='quickupdate'}</th>
-				<th>{l s="Coin" mod='quickupdate'}</th>
+				<th>{l s="Coin Symbol" mod='quickupdate'}</th>
 				<th>{l s="Coin Name" mod='quickupdate'}</th>
 				<th>{l s="Wallte Name" mod='quickupdate'}</th>
 				<th>{l s="Balance" mod='quickupdate'}</th>
 				<th>{l s="Exchange rate multiplier" mod='quickupdate'}</th>
-				<th>{l s="Minimum value" mod='quickupdate'}</th>
+				<th>{l s="Minimum Invoice value" mod='quickupdate'}</th>
 				
 				<th>{l s="Created" mod='quickupdate'}</th>
 				<th class="text-right">Action</th>
@@ -37,19 +36,18 @@
 			{if isset($wallets) && count($wallets)}	
 				{$index=1}	
 				{foreach from=$wallets item=wallet}
-					{$logo=strtolower($wallet['coin'])}
-					{$coin_name = $wallet['coin']}
+					{$logo=strtolower($wallet['coin_symbol'])}
+					{$coin_name = $wallet['coin_symbol']}
 					<tr>
-						<td class="pointer">{$index}</td>
 						<td class="pointer"><img src="{$img_path}{$logo}.png" class="img-thumbnail" width="50" /></td>
-						<td class="pointer">{$wallet['coin']}</td>
+						<td class="pointer">{$wallet['coin_symbol']}</td>
 
 						<td class="pointer">{$wallet['coin_name']}</td>
-						<td class="pointer">{$wallet['name']}</td>
+						<td class="pointer">{$wallet['wallet_name']}</td>
 						<td class="pointer">{$wallet['balance']}</td>
 						<td class="pointer">{$wallet['exchange_rate_multiplier']}</td>
-						<td class="pointer">{$wallet['minimum_value']}</td>
-						<td class="pointer">{$wallet['date_added']}</td>
+						<td class="pointer">{$wallet['minimum_invoice_amount']} {$fiat_currency}</td>
+						<td class="pointer">{$wallet['created_at']} UTC</td>
 						<td>
 							<div class="btn-group-action">				
 								<div class="btn-group pull-right">
