@@ -6,7 +6,7 @@ class CR_Invoice
    private $options = 0; //a bitwise disjunction of the flags OPENSSL_RAW_DATA and OPENSSL_ZERO_PADDING.
    private $encryption_iv = 'Coinremitter__iv'; // Non-NULL (precisely 16 bytes) Initialization Vector for encryption
 
-   private $plugin_version = '1.0.2';
+   private $plugin_version = '1.0.3';
    private $api_version = 'v1';
    private $api_base_url = 'https://api.coinremitter.com/';
 

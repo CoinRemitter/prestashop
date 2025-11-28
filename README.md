@@ -77,7 +77,7 @@ Create a Wallet:
 >PATH: More > Coinremitter > Add wallet
 
 1. Go to the sidebar on the Prestashop’s admin panel.
-2. Look all the way down and click on the “Coinremitter” which is right under the “MORE” option.
+2. Look all the way down and click on the “Coinremitter” which is right under the “Payment” option.
 
     ![Coinremitter-Plugin-Add_wallet](https://coinremitter.com/assets/img/screenshots/prestashop/create_wallet.png)
 

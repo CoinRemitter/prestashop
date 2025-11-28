@@ -2,8 +2,8 @@
 <module>
     <name>coinremitter</name>
     <displayName><![CDATA[Coinremitter]]></displayName>
-    <version><![CDATA[1.0.2]]></version>
-    <description><![CDATA[ Accept Bitcoin, Tron, Binance (BEP20), BitcoinCash, Ethereum, Litecoin, Dogecoin, Tether, Dash etc via Coinremitter.]]></description>
+    <version><![CDATA[1.0.3]]></version>
+    <description><![CDATA[ Accept Bitcoin, Tether ERC20, Tether TRC20, USDC ERC20, Tron, Ethereum, Litecoin, Dogecoin, Dash, BitcoinCash etc via Coinremitter.]]></description>
     <author><![CDATA[Coinremitter]]></author>
     <tab><![CDATA[wallets]]></tab>
 	<confirmUninstall><![CDATA[Are you sure you want to delete your details?]]></confirmUninstall>

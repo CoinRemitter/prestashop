@@ -33,13 +33,16 @@ if (!defined('_PS_VERSION_')) {
 }
 class Coinremitter extends PaymentModule
 {
+   protected $is_eu_compatible;
+   protected $tabParentName;
+   protected $tabClassName;
 
    public function __construct()
    {
       new CR_Invoice();
       $this->name = 'coinremitter';
       $this->tab = 'wallets';
-      $this->version = '1.0.2';
+      $this->version = '1.0.3';
       $this->ps_versions_compliancy = array('min' => '1.7', 'max' => _PS_VERSION_);
       $this->author = 'Coinremitter';
       $this->need_instance = 1;
@@ -50,7 +53,7 @@ class Coinremitter extends PaymentModule
       $this->controllers = array('redirect', 'callback', 'webhook');
       parent::__construct();
 
-      $this->tabParentName = 'AdminTools';
+      $this->tabParentName = 'AdminParentPayment';
       $this->displayName = $this->l('Coinremitter');
       $this->description = $this->l('Accept Bitcoin, Tron, Binance (BEP20), BitcoinCash, Ethereum, Litecoin, Dogecoin, Tether, Dash etc via Coinremitter.');
       $this->confirmUninstall = $this->l('Are you sure you want to delete your details?');
@@ -60,12 +63,29 @@ class Coinremitter extends PaymentModule
       }
    }
 
+   public function hookPaymentReturn($params)
+   {
+      // This method is required if you register the hook
+      // Put your logic or return a template
+
+      if (!isset($params['order'])) {
+         return;
+      }
+
+      $this->context->smarty->assign([
+         'order_reference' => $params['order']->reference ?? '',
+         'status' => $params['order']->getCurrentState(),
+         'module_name' => $this->displayName,
+      ]);
+
+      return $this->fetch('module:coinremitter/views/templates/hook/payment_return.tpl');
+   }
+
    public function install()
    {
       if (!parent::install() || !$this->registerHook('paymentOptions') || !$this->registerHook('paymentReturn')) {
          return false;
       }
-      $this->registerHook('displayHeader');
       $this->registerHook('displayAdminOrder');
       $this->registerHook('displayOrderDetail');
       $this->registerHook('moduleRoutes');
@@ -582,19 +602,19 @@ class Coinremitter extends PaymentModule
          if (isset($trx['type']) && $trx['type'] == 'receive') {
 
             $fiat_amount = ($trx['amount'] * $coinremitterOrder['fiat_amount']) / $coinremitterOrder['crypto_amount'];
-				$minFiatAmount = $wallet['minimum_invoice_amount'];
-				if ($coinremitterOrder['fiat_symbol'] != 'USD') {
-					$minFiatAmount = $wallet['minimum_invoice_amount'];
-				}
-				$minFiatAmount = number_format($minFiatAmount, 2, '.', '');
-				$fiat_amount = number_format($fiat_amount, 2, '.', '');
-				$currency = Currency::getIdByIsoCode($coinremitterOrder['fiat_symbol']);
-				$currency = new Currency($currency);
+            $minFiatAmount = $wallet['minimum_invoice_amount'];
+            if ($coinremitterOrder['fiat_symbol'] != 'USD') {
+               $minFiatAmount = $wallet['minimum_invoice_amount'];
+            }
+            $minFiatAmount = number_format($minFiatAmount, 2, '.', '');
+            $fiat_amount = number_format($fiat_amount, 2, '.', '');
+            $currency = Currency::getIdByIsoCode($coinremitterOrder['fiat_symbol']);
+            $currency = new Currency($currency);
 
-				$fiat_amount = Tools::convertPrice($fiat_amount,$currency,false);
-				if ($fiat_amount < $minFiatAmount) {
-					continue;
-				}
+            $fiat_amount = Tools::convertPrice($fiat_amount, $currency, false);
+            if ($fiat_amount < $minFiatAmount) {
+               continue;
+            }
 
 
             $transactionInfo = $invoice->checkTransactionExists($coinremitterOrder['transaction_meta'], $trx['txid']);
