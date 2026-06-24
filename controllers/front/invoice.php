@@ -14,8 +14,10 @@ class CoinremitterInvoiceModuleFrontController extends ModuleFrontController
 	{
 
 		parent::initContent();
+		$db = Db::getInstance();
 
 		$order_id = Tools::getValue('order_id');
+		$order_id = pSQL(trim($order_id));
 		if (!isset($order_id) || $order_id == '') {
 			Tools::redirect('index.php?controller=404');
 		}
@@ -31,7 +33,7 @@ class CoinremitterInvoiceModuleFrontController extends ModuleFrontController
 				$key = $order->secure_key;
 				$module = $order->module;
 				$sql = "SELECT id_module FROM " . _DB_PREFIX_ . "module WHERE name='$module'";
-				$module_id = Db::getInstance()->executes($sql)[0]['id_module'];
+				$module_id = $db->executeS($sql)[0]['id_module'];
 				Tools::redirect('order-confirmation?id_cart=' . $cart_id . '&id_module=' . $module_id . '&id_order=' . $order_id . '&key=' . $key);
 			} else {
 				$this->redirect_after = '404';
@@ -47,7 +49,7 @@ class CoinremitterInvoiceModuleFrontController extends ModuleFrontController
 		} else {
 
 			$sql = "SELECT * FROM coinremitter_orders WHERE order_id= '" . $order_id . "'";
-			$orderData = Db::getInstance()->executes($sql)[0];
+			$orderData = $db->executeS($sql)[0];
 
 			if ($orderData['order_status'] != ORDER_STATUS_CODE["pending"] && $orderData['order_status'] != ORDER_STATUS_CODE['under_paid']) {
 				Tools::redirect('index.php?controller=404');
@@ -127,8 +129,9 @@ class CoinremitterInvoiceModuleFrontController extends ModuleFrontController
 
 	public function getImage($id_product)
 	{
+		$id_product = pSQL($id_product);
 		$sql = "SELECT id_image FROM " . _DB_PREFIX_ . "image WHERE cover = 1 AND id_product = $id_product";
-		$imageData = Db::getInstance()->executes($sql)[0];
+		$imageData = $db->executeS($sql)[0];
 		$idImage = $imageData['id_image'];
 		$imgPath = _PS_BASE_URL_ . __PS_BASE_URI__ . 'img/p/';
 		for ($i = 0; $i < strlen($idImage); $i++) {
@@ -144,31 +147,32 @@ class CoinremitterInvoiceModuleFrontController extends ModuleFrontController
 		date_default_timezone_set("UTC");
 		$db = Db::getInstance();
 		$order = new Order($order_id);
+		$order_id = pSQL($order_id);
 		$sql = "SELECT * FROM coinremitter_orders WHERE order_id= '" . $order_id . "'";
-		$coinremitterOrder = $db->executes($sql);
-		
+		$coinremitterOrder = $db->executeS($sql);
+
 		if (empty($coinremitterOrder)) {
 			return false;
 		}
 		$coinremitterOrder = $coinremitterOrder[0];
 		$coinremitterOrder['transaction_meta'] = $coinremitterOrder['transaction_meta'] ? json_decode($coinremitterOrder['transaction_meta'], true) : [];
-		if(!empty($coinremitterOrder['transaction_meta']) && $coinremitterOrder['order_status'] != ORDER_STATUS_CODE["pending"] && $coinremitterOrder['order_status'] != ORDER_STATUS_CODE['expired']){
+		if (!empty($coinremitterOrder['transaction_meta']) && $coinremitterOrder['order_status'] != ORDER_STATUS_CODE["pending"] && $coinremitterOrder['order_status'] != ORDER_STATUS_CODE['expired']) {
 			return false;
 		}
-		if(!isset($coinremitterOrder['expiry_date']) || $coinremitterOrder['expiry_date'] == ''){
+		if (!isset($coinremitterOrder['expiry_date']) || $coinremitterOrder['expiry_date'] == '') {
 			return false;
 		}
 		$date_diff = 0;
 		$current = strtotime(date("Y-m-d H:i:s"));
 		$expire_on = strtotime($coinremitterOrder['expiry_date']);
 		$date_diff = $expire_on - $current;
-		if($date_diff > 0){
+		if ($date_diff > 0) {
 			return false;
 		}
-		
-		if($coinremitterOrder['order_status'] == ORDER_STATUS_CODE['pending']){
-			$sql = "UPDATE `coinremitter_orders` SET `order_status`=".ORDER_STATUS_CODE['expired']." WHERE `order_id`= '" . $order_id . "'";
-			
+
+		if ($coinremitterOrder['order_status'] == ORDER_STATUS_CODE['pending']) {
+			$sql = "UPDATE `coinremitter_orders` SET `order_status`=" . ORDER_STATUS_CODE['expired'] . " WHERE `order_id`= '" . $order_id . "'";
+
 			$db->Execute($sql);
 			$ostate = 6; //canceled order status
 			$history = new OrderHistory();
@@ -186,8 +190,9 @@ class CoinremitterInvoiceModuleFrontController extends ModuleFrontController
 	{
 
 		$db = Db::getInstance();
+		$order_id = pSQL($order_id);
 		$sql = "SELECT * FROM coinremitter_orders WHERE order_id='" . $order_id . "'";
-		$order = $db->executes($sql);
+		$order = $db->executeS($sql);
 		if (empty($order)) {
 			return false;
 		}

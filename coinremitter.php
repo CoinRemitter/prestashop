@@ -42,7 +42,7 @@ class Coinremitter extends PaymentModule
       new CR_Invoice();
       $this->name = 'coinremitter';
       $this->tab = 'wallets';
-      $this->version = '1.0.3';
+      $this->version = '1.0.4';
       $this->ps_versions_compliancy = array('min' => '1.7', 'max' => _PS_VERSION_);
       $this->author = 'Coinremitter';
       $this->need_instance = 1;
@@ -371,7 +371,7 @@ class Coinremitter extends PaymentModule
    {
       $wtable = 'coinremitter_wallets';
       $bp_sql = "SELECT id,coin_symbol,minimum_invoice_amount,unit_fiat_amount,base_fiat_symbol,exchange_rate_multiplier FROM $wtable";
-      $results = Db::getInstance()->executes($bp_sql);
+      $results = Db::getInstance()->executeS($bp_sql);
       return $results;
    }
 
@@ -432,8 +432,9 @@ class Coinremitter extends PaymentModule
    {
       //return $orderid;
       $this->updateOrderStatusInDetail($orderid);
+      $orderid = pSQL($orderid);
       $sql = "SELECT * FROM `coinremitter_orders` WHERE `order_id`='$orderid' LIMIT 1";
-      $order = Db::getInstance()->executes($sql);
+      $order = Db::getInstance()->executeS($sql);
       if (empty($order)) {
          return $this->context->smarty->fetch($this->local_path . 'views/templates/admin/order_detail.tpl');
       }
@@ -470,8 +471,9 @@ class Coinremitter extends PaymentModule
    public function front_order_page_detail($orderid)
    {
       $this->updateOrderStatusInDetail($orderid);
+      $orderid = pSQL($orderid);
       $sql = "SELECT * FROM coinremitter_orders WHERE order_id = '$orderid' LIMIT 1";
-      $order = Db::getInstance()->executes($sql);
+      $order = Db::getInstance()->executeS($sql);
 
       if (empty($order)) {
          return $this->context->smarty->fetch($this->local_path . 'views/templates/admin/order_detail.tpl');
@@ -524,9 +526,10 @@ class Coinremitter extends PaymentModule
    public function getPaymentDetail($orderid)
    {
       $results = [];
+      $orderid = pSQL($orderid);
       $wtable = 'coinremitter_orders';
       $bp_sql = "SELECT * FROM $wtable WHERE order_id = '$orderid' LIMIT 1";
-      $results = Db::getInstance()->executes($bp_sql);
+      $results = Db::getInstance()->executeS($bp_sql);
       if (count($results) > 0) {
          $results =  $results[0];
       }
@@ -536,10 +539,11 @@ class Coinremitter extends PaymentModule
    public function updateOrderStatusInDetail($orderid)
    {
       date_default_timezone_set("UTC");
+      $orderid = pSQL($orderid);
       $order = new Order($orderid);
       $db = Db::getInstance();
       $sql = "SELECT * FROM `coinremitter_orders` WHERE `order_id` = '$orderid' LIMIT 1";
-      $coinremitterOrder = $db->executes($sql);
+      $coinremitterOrder = $db->executeS($sql);
       if (empty($coinremitterOrder)) {
          return;
       }
@@ -555,8 +559,8 @@ class Coinremitter extends PaymentModule
       //    return;
       // }
       // die;
-      $sql = "SELECT * FROM `coinremitter_wallets` WHERE `coin_symbol`= '" . $coin . "'";
-      $result = $db->executes($sql);
+      $sql = "SELECT * FROM `coinremitter_wallets` WHERE `coin_symbol`= '" . pSQL($coin) . "'";
+      $result = $db->executeS($sql);
       if (empty($result)) {
          return;
       }
@@ -581,7 +585,7 @@ class Coinremitter extends PaymentModule
          $date_diff = $expire_on - $current;
          if ($date_diff < 1 && ($order_status == 10 || $order_status == 6) && ORDER_STATUS_CODE['expired'] != $coinremitterOrder['order_status']) {
             $expiryStatus = ORDER_STATUS_CODE['expired'];
-            $sql = "UPDATE `coinremitter_orders` SET `order_status`= $expiryStatus WHERE `payment_address`= '$address' ";
+            $sql = "UPDATE `coinremitter_orders` SET `order_status`= $expiryStatus WHERE `payment_address`= '" . pSQL($address) . "'";
             $db->Execute($sql);
             $this->orderCancel($orderid);
             return;
@@ -589,7 +593,7 @@ class Coinremitter extends PaymentModule
       }
 
       $sql = "SELECT * FROM `coinremitter_orders` WHERE `order_id` = '$orderid' LIMIT 1";
-      $coinremitterOrder = $db->executes($sql);
+      $coinremitterOrder = $db->executeS($sql);
       if (empty($coinremitterOrder)) {
          return;
       }
@@ -637,13 +641,20 @@ class Coinremitter extends PaymentModule
          return;
       }
 
-      $truncationValue = TRUNCATION_VALUE;
-      if ($coinremitterOrder['fiat_symbol'] != 'USD') {
-         $truncationValue = TRUNCATION_VALUE;
-      }
+      $body = array(
+			'fiat'        => 'USD',
+			'fiat_amount' => TRUNCATION_VALUE,
+			'crypto'      => $coin,
+		);
+		$conversionRes = $invoice->CR_getFiatToCryptoRate($body);
+		
+		if (!isset($conversionRes) || !$conversionRes['success']) {
+			return;
+		}
+		$truncationValue = $conversionRes['data'][0]['price'];
       $truncationValue = number_format($truncationValue, 4, '.', '');
       $total_fiat_paid = number_format(($total_paid * $coinremitterOrder['fiat_amount']) / $coinremitterOrder['crypto_amount'], 2, '.', '');
-      $totalFiatPaidWithTruncation = $total_fiat_paid + $truncationValue;
+      $totalPaidWithTruncation = $total_paid + $truncationValue;
 
       $status = $coinremitterOrder['order_status'];
       if ($total_paid == $coinremitterOrder['crypto_amount']) {
@@ -652,7 +663,7 @@ class Coinremitter extends PaymentModule
          $status = ORDER_STATUS_CODE['over_paid'];
       } else if ($total_paid != 0 && $total_paid < $coinremitterOrder['crypto_amount']) {
          $status = ORDER_STATUS_CODE['under_paid'];
-         if ($totalFiatPaidWithTruncation > $coinremitterOrder['fiat_amount']) {
+         if ($totalPaidWithTruncation >= $coinremitterOrder['crypto_amount']) {
             $status = ORDER_STATUS_CODE['paid'];
          }
       }
@@ -688,8 +699,9 @@ class Coinremitter extends PaymentModule
    {
       $db = Db::getInstance();
       $order = new Order($order_id);
+      $orderid = pSQL($orderid);
       $sql = "SELECT * FROM coinremitter_orders WHERE order_id='" . $order_id . "'";
-      $order = $db->executes($sql);
+      $order = $db->executeS($sql);
       if (empty($order)) {
          return false;
       }
@@ -714,8 +726,10 @@ class Coinremitter extends PaymentModule
    public function checkRaceCondition($transaction_id, $last_id)
    {
       $db = Db::getInstance();
+      $transaction_id = pSQL($transaction_id);
+      $last_id = pSQL($last_id);
       $sql = "SELECT transaction_id FROM coinremitter_webhook WHERE transaction_id= '" . $transaction_id . "'";
-      $result = $db->executes($sql);
+      $result = $db->executeS($sql);
       if (count($result) > 1) {
          $sql = "DELETE FROM coinremitter_webhook WHERE id= '" . $last_id . "'";
          $db->Execute($sql);

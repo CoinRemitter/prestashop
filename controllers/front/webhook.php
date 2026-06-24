@@ -51,13 +51,13 @@ class CoinremitterWebhookModuleFrontController extends ModuleFrontController
          return "Invalid webhook data";
       }
 
-      $address = $post['address'];
-      $coin = $post['coin_symbol'];
+      $address = pSQL($post['address']);
+      $coin = pSQL($post['coin_symbol']);
       $id = $post['id'];
 
       $logger->logDebug("Address " . $address);
       $sql = "SELECT * FROM `coinremitter_orders` WHERE `payment_address`= '" . $address . "' LIMIT 1";
-      $result = $db->executes($sql);
+      $result = $db->executeS($sql);
       $logger->logDebug($sql);
       if (empty($result)) {
          $logger->logDebug("Address Not Found");
@@ -90,14 +90,14 @@ class CoinremitterWebhookModuleFrontController extends ModuleFrontController
 
             $logger->logDebug('Stwp ->6');
             $sql = "UPDATE `coinremitter_orders` SET `order_status`=" . ORDER_STATUS_CODE['expired'] . " WHERE `payment_address`= '" . $address . "'";
-            $db->Execute($sql);
+            $db->execute($sql);
             $this->orderCancel($order_id);
             return 'Order Expired';
          }
       }
       $logger->logDebug('Stwp ->7');
       $sql = "SELECT * FROM `coinremitter_wallets` WHERE `coin_symbol`= '" . $coin . "'";
-      $resultWallet = $db->executes($sql);
+      $resultWallet = $db->executeS($sql);
       if (empty($resultWallet)) {
          $logger->logDebug("Wallet Not Found");
          return;
@@ -143,7 +143,7 @@ class CoinremitterWebhookModuleFrontController extends ModuleFrontController
       }
 
       $sql = "SELECT * FROM `coinremitter_orders` WHERE `payment_address`= '" . $address . "' LIMIT 1";
-      $result = $db->executes($sql);
+      $result = $db->executeS($sql);
       if (empty($result)) {
          $logger->logDebug("Address Not Found");
          return;
@@ -173,13 +173,20 @@ class CoinremitterWebhookModuleFrontController extends ModuleFrontController
          return 'Order Not Updated';
       }
 
-      $truncationValue = TRUNCATION_VALUE;
-      if ($coinremitterOrder['fiat_symbol'] != 'USD') {
-         $truncationValue = TRUNCATION_VALUE;
-      }
+      $body = array(
+			'fiat'        => 'USD',
+			'fiat_amount' => TRUNCATION_VALUE,
+			'crypto'      => $coin,
+		);
+		$conversionRes = $invoice->CR_getFiatToCryptoRate($body);
+		
+		if (!isset($conversionRes) || !$conversionRes['success']) {
+			return 'Order Not Updated';
+		}
+		$truncationValue = $conversionRes['data'][0]['price'];
       $truncationValue = number_format($truncationValue, 4, '.', '');
       $total_fiat_paid = number_format(($total_paid * $coinremitterOrder['fiat_amount']) / $coinremitterOrder['crypto_amount'], 2, '.', '');
-      $totalFiatPaidWithTruncation = $total_fiat_paid + $truncationValue;
+      $totalPaidWithTruncation = $total_paid + $truncationValue;
 
       $status = $coinremitterOrder['order_status'];
       if ($total_paid == $coinremitterOrder['crypto_amount']) {
@@ -188,7 +195,7 @@ class CoinremitterWebhookModuleFrontController extends ModuleFrontController
          $status = ORDER_STATUS_CODE['over_paid'];
       } else if ($total_paid != 0 && $total_paid < $coinremitterOrder['crypto_amount']) {
          $status = ORDER_STATUS_CODE['under_paid'];
-         if ($totalFiatPaidWithTruncation > $coinremitterOrder['fiat_amount']) {
+         if ($totalPaidWithTruncation >= $coinremitterOrder['crypto_amount']) {
             $status = ORDER_STATUS_CODE['paid'];
          }
       }
@@ -229,8 +236,9 @@ class CoinremitterWebhookModuleFrontController extends ModuleFrontController
    {
 
       $db = Db::getInstance();
+      $order_id = pSQL($order_id);
       $sql = "SELECT * FROM coinremitter_orders WHERE order_id='" . $order_id . "'";
-      $order = $db->executes($sql);
+      $order = $db->executeS($sql);
       if (empty($order)) {
          return false;
       }
@@ -256,8 +264,10 @@ class CoinremitterWebhookModuleFrontController extends ModuleFrontController
    public function checkRaceCondition($transaction_id, $last_id)
    {
       $db = Db::getInstance();
+      $transaction_id = pSQL($transaction_id);
+      $last_id = pSQL($last_id);
       $sql = "SELECT transaction_id FROM coinremitter_webhook WHERE transaction_id= '" . $transaction_id . "'";
-      $result = $db->executes($sql);
+      $result = $db->executeS($sql);
       if (count($result) > 1) {
          $sql = "DELETE FROM coinremitter_webhook WHERE id= '" . $last_id . "'";
          $db->Execute($sql);

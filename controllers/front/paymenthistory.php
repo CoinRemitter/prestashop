@@ -19,15 +19,13 @@ class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontControl
 			return;
 		}
 		$address = $post['address'];
-		$sql = "SELECT * FROM coinremitter_orders WHERE `payment_address`= '" . $address . "'";
-		$order = $db->executes($sql);
-		if (empty($order)) {
+		$sql = "SELECT * FROM `coinremitter_orders` WHERE `payment_address` = '" . pSQL($address) . "'";
+		$order = $db->getRow($sql);
+		if (!$order) {
 			echo json_encode(array('flag' => 0, 'msg' => 'Invalid address'));
 			parent::init();
 			return;
 		}
-		$order = $order[0];
-
 		$order_id = $order['order_id'];
 		if (!isset($order_id) || $order_id == '') {
 			echo json_encode(array('flag' => 0, 'msg' => 'Unauthorized access'));
@@ -44,13 +42,13 @@ class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontControl
 
 		$coin = $order['coin_symbol'];
 
-		if($order['order_status'] == ORDER_STATUS_CODE['expired']){
+		if ($order['order_status'] == ORDER_STATUS_CODE['expired']) {
 			echo json_encode(array('flag' => 0, 'msg' => 'Order expired'));
 			parent::init();
 			return;
 		}
-		$sql = "SELECT * FROM coinremitter_wallets WHERE `coin_symbol`= '" . $coin . "' LIMIT 1";
-		$wallet = $db->executes($sql);
+		$sql = "SELECT * FROM coinremitter_wallets WHERE `coin_symbol`= '" . pSQL($coin) . "' LIMIT 1";
+		$wallet = $db->executeS($sql);
 		if (empty($wallet)) {
 			echo json_encode(array('flag' => 0, 'msg' => 'Invalid address'));
 			parent::init();
@@ -89,7 +87,7 @@ class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontControl
 
 		if (empty($order['transaction_meta']) && $date_diff < 1 && $expire_on != "") {
 			$expireStatus = ORDER_STATUS_CODE['expired'];
-			$sql = "UPDATE `coinremitter_orders` SET `order_status`= $expireStatus WHERE `id`= '" . $order['id'] . "'";
+			$sql = "UPDATE `coinremitter_orders` SET `order_status`= $expireStatus WHERE `id`= '" . pSQL($order['id']) . "'";
 			$db->Execute($sql);
 			$responseData['data']['status'] = ORDER_STATUS[$expireStatus];
 			$responseData['data']['status_code'] = $expireStatus;
@@ -118,8 +116,7 @@ class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontControl
 		$total_paid = 0;
 		foreach ($allTrx as $trx) {
 			if (isset($trx['type']) && $trx['type'] == 'receive') {
-				// print_r($trx);
-				// die;
+				
 				$fiat_amount = ($trx['amount'] * $order['fiat_amount']) / $order['crypto_amount'];
 				$minFiatAmount = $wallet['minimum_invoice_amount'];
 				if ($order['fiat_symbol'] != 'USD') {
@@ -130,7 +127,7 @@ class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontControl
 				$currency = Currency::getIdByIsoCode($order['fiat_symbol']);
 				$currency = new Currency($currency);
 
-				$fiat_amount = Tools::convertPrice($fiat_amount,$currency,false);
+				$fiat_amount = Tools::convertPrice($fiat_amount, $currency, false);
 				if ($fiat_amount < $minFiatAmount) {
 					continue;
 				}
@@ -150,21 +147,28 @@ class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontControl
 				}
 			}
 		}
-		
-		if(!$updateOrderRequired){
+
+		if (!$updateOrderRequired) {
 			echo json_encode($responseData);
 			parent::init();
 			return;
 		}
 
-		$truncationValue = TRUNCATION_VALUE;
-		if ($order['fiat_symbol'] != 'USD') {
-			$truncationValue = TRUNCATION_VALUE;
+		$body = array(
+			'fiat'        => 'USD',
+			'fiat_amount' => TRUNCATION_VALUE,
+			'crypto'      => $order['coin_symbol'],
+		);
+		$conversionRes = $invoice->CR_getFiatToCryptoRate($body);
+		
+		if (!isset($conversionRes) || !$conversionRes['success']) {
+			echo json_encode($responseData);
+			parent::init();
+			return;
 		}
-		$truncationValue = number_format($truncationValue, 4, '.', '');
+		$truncationValue = $conversionRes['data'][0]['price'];
 		$total_fiat_paid = number_format(($total_paid * $order['fiat_amount']) / $order['crypto_amount'], 2, '.', '');
-		$totalFiatPaidWithTruncation = $total_fiat_paid + $truncationValue;
-
+		$totalPaidWithTruncation = $total_paid + $truncationValue;
 		$status = $order_status;
 		if ($total_paid == $order['crypto_amount']) {
 			$status = ORDER_STATUS_CODE['paid'];
@@ -172,7 +176,7 @@ class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontControl
 			$status = ORDER_STATUS_CODE['over_paid'];
 		} else if ($total_paid != 0 && $total_paid < $order['crypto_amount']) {
 			$status = ORDER_STATUS_CODE['under_paid'];
-			if ($totalFiatPaidWithTruncation > $order['fiat_amount']) {
+			if ($totalPaidWithTruncation >= $order['crypto_amount']) {
 				$status = ORDER_STATUS_CODE['paid'];
 			}
 		}
@@ -182,7 +186,7 @@ class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontControl
 
 		$responseData['data']['status'] = ORDER_STATUS[$status];
 		$responseData['data']['status_code'] = $status;
-		$responseData['data']['transactions'] = $invoice->prepareReturnTrxData(json_decode($trxMeta,true));
+		$responseData['data']['transactions'] = $invoice->prepareReturnTrxData(json_decode($trxMeta, true));
 		$responseData['data']['paid_amount'] = number_format($total_paid, 8, '.', '');
 		$responseData['data']['pending_amount'] = number_format($order['crypto_amount'] - $total_paid, 8, '.', '');
 		echo json_encode($responseData);
@@ -205,7 +209,7 @@ class CoinremitterPaymenthistoryModuleFrontController extends ModuleFrontControl
 			$history->sendEmail($order);
 			header("Refresh:0");
 		} catch (\Exception $ex) {
-			return ;
+			return;
 		}
 	}
 
