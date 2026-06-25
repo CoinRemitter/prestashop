@@ -14,7 +14,7 @@ Apart from centralized currencies this option creates a traffic for sellers who 
 
 Prerequisites
 ---
-* For the integration process with coinremitter, users must need to have Prestashop version 1.7+
+* For the integration process with coinremitter, users must need to have Prestashop version 8.0+
 * If you don't have a Coinremitter account then please consider making it one.  [Create Account ](https://coinremitter.com/signup)
 
 Installation Of Plugin:
@@ -26,15 +26,15 @@ Installation Of Plugin:
 2. Log into your admin panel.
 3. Click on Modules at the sidebar section.
 
-    ![Coinremitter-Plugin-Installation](https://coinremitter.com/assets/img/screenshots/prestashop/plugin_installation.png)
+    ![Coinremitter-Plugin-Installation](https://coinremitter.com/assets/images/plugins/prestashop/plugin-installation.webp)
 
-4. There are two options “Module manager” and “Module Catalog” under Modules.
+4. There are two options “Module manager” and “Marketplace” under Modules.
 5. Click on “Module Manager”
 6. Then click on "Upload a Module" button. it will open popup where you have to upload the zip file
 
-    ![Coinremitter-Plugin-Installation](https://coinremitter.com/assets/img/screenshots/prestashop/plugin_installation_2.png)
+    ![Coinremitter-Plugin-Installation](https://coinremitter.com/assets/images/plugins/prestashop/plugin-installation-2.webp)
 
-    ![Coinremitter-Plugin-Installation](https://coinremitter.com/assets/img/screenshots/prestashop/plugin_installation_3.png)
+    ![Coinremitter-Plugin-Installation](https://coinremitter.com/assets/images/plugins/prestashop/plugin-installation-3.webp)
 
 7. Now select the coinremitter.zip file and upload it.
 8. There you go! You’ve successfully installed the plugin.
@@ -49,13 +49,13 @@ Plugin Configuration:
 2. Click on Modules and then select Module Manager.
 3. In the module manager page, you have to find the “Other” section.
     
-    ![Coinremitter-Plugin-Installation](https://coinremitter.com/assets/img/screenshots/prestashop/configuration_plug_1.png)
+    ![Coinremitter-Plugin-Installation](https://coinremitter.com/assets/images/plugins/prestashop/configuration-plug-1.webp)
 
 4. You’ll find the “Coinremitter” plugin there.
 5. Now, click on “Configure” at the end of the same line.
 6. The configure settings page will open.
  
-    ![Coinremitter-Plugin-Installation](https://coinremitter.com/assets/img/screenshots/prestashop/configuration_plug_2.png)
+    ![Coinremitter-Plugin-Installation](https://coinremitter.com/assets/images/plugins/prestashop/configuration-plug-2.webp)
 
 There you will need to fill up some details according to your preferences:
 
@@ -79,13 +79,13 @@ Create a Wallet:
 1. Go to the sidebar on the Prestashop’s admin panel.
 2. Look all the way down and click on the “Coinremitter” which is right under the “Payment” option.
 
-    ![Coinremitter-Plugin-Add_wallet](https://coinremitter.com/assets/img/screenshots/prestashop/create_wallet.png)
+    ![Coinremitter-Plugin-Add_wallet](https://coinremitter.com/assets/images/plugins/prestashop/create-wallet.webp)
 
 3. The wallet list page will open.
 4. To add a new wallet, click on the plus button located on the top right corner of the page.
 5. A new page will appear, where you'll see multiple options such as **API key, Password and Exchange Rate Multiplier and Minimum Invoice Value.**
 
-    ![Coinremitter-Plugin-Add_wallet](https://coinremitter.com/assets/img/screenshots/prestashop/create_wallet_2.png)
+    ![Coinremitter-Plugin-Add_wallet](https://coinremitter.com/assets/images/plugins/prestashop/create-wallet-2.webp)
 
 7. **API KEY :** Go to the website of Coinremitter and login to your account and get your API key from there. If you have any trouble getting your password and API key then [click here](https://blog.coinremitter.com/how-to-get-api-key-and-password-of-coinremitter-wallet/) to get the understanding.
 8. **PASSWORD :** Type the password that you have set while creating a new wallet in your merchant panel.
@@ -102,16 +102,16 @@ How to Make Payment:
 * Now add some products to your cart and proceed to the checkout page. Choose the "Payment with Cryptocurrency" payment form. 
     If you changed the title text on the configuration page of the coinremitter then it will be shown as an option here. Click on the button to continue.
    
-    ![Coinremitter-Plugin-Make_Payment](https://coinremitter.com/assets/img/screenshots/prestashop/how_make_payment.png)
+    ![Coinremitter-Plugin-Make_Payment](https://coinremitter.com/assets/images/plugins/prestashop/how-make-payment.webp)
 
 * Customers will select the coin that they like to pay for. Make sure you've added a wallet to your Prestashop admin panel.
 * Now customers will click on “Order with an obligation to pay”, The system will then automatically create an invoice that will appear on the screen.
     
-    ![Coinremitter-Plugin-inovice-page](https://coinremitter.com/assets/img/screenshots/prestashop/how_make_payment_2.png)
+    ![Coinremitter-Plugin-inovice-page](https://coinremitter.com/assets/images/plugins/prestashop/how-make-payment-2.webp)
 
 * It will instantly redirect to the success page once the payment has been confirmed on the blockchain.
 
-    ![Coinremitter-Plugin-thank-you-page](https://coinremitter.com/assets/img/screenshots/prestashop/how_make_payment_3.png) 
+    ![Coinremitter-Plugin-thank-you-page](https://coinremitter.com/assets/images/plugins/prestashop/how-make-payment-3.webp) 
 
 * That’s all, Your order has been successfully placed.
 
@@ -123,6 +123,7 @@ Check Your Order Details:
 * Click on the order and you will be redirected to the order view page.
 * There you’ll see the complete order detail, conversion rate, and payment history.
 
-    ![Coinremitter-Plugin-payment-detail](https://coinremitter.com/assets/img/screenshots/prestashop/check_order.png) 
+    ![Coinremitter-Plugin-payment-detail](https://coinremitter.com/assets/images/plugins/prestashop/check-order.webp)
+
 Now you are ready to accept cryptocurrency payments into your Prestashop website.
 >NOTE: Don't forget to remove Test Coin wallet from your admin panel and add other coin wallets other than test coin
