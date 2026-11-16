@@ -7,12 +7,13 @@ class CoinremitterRedirectModuleFrontController extends ModuleFrontController
    {
       $this->title = $this->module->l('My module title');
       $cart = $this->context->cart;
+      $coin_selected = Tools::getValue('coinremitter_select_coin');
       if (
          $cart->id_customer == 0
          || $cart->id_address_delivery == 0
          || $cart->id_address_invoice == 0
          || !$this->module->active
-         || empty($_REQUEST['coinremitter_select_coin'])
+         || empty($coin_selected)
       ) {
          Tools::redirect('index.php?controller=order&step=1');
       }
@@ -39,7 +40,13 @@ class CoinremitterRedirectModuleFrontController extends ModuleFrontController
          Tools::redirect('index.php?controller=order&step=1');
       }
 
-      $wallet_coin_name = $_REQUEST['coinremitter_select_coin'];
+      $wallet_coin_name = trim((string)Tools::getValue('coinremitter_select_coin'));
+      $invoice = new CR_Invoice();
+      if (!preg_match('/^[a-zA-Z0-9]+$/', $wallet_coin_name)) {
+         $msg = 'Invalid cryptocurrency selected.';
+         $error_link = $this->context->link->getModuleLink('coinremitter', 'error', array('msg' => $msg));
+         Tools::redirect($error_link);
+      }
       $currency = $this->context->currency;
 
       $cartRules = $cart->getCartRules();
@@ -55,7 +62,6 @@ class CoinremitterRedirectModuleFrontController extends ModuleFrontController
       $otherTotal = $cart->getOrderTotal(true, Cart::ONLY_SHIPPING);
       $total = (string)$cart->getOrderTotal(true, Cart::BOTH);
 
-      $invoice = new CR_Invoice();
       $wallet = $invoice->CR_getWallet($wallet_coin_name);
 
       if (!$wallet) {
@@ -133,7 +139,8 @@ class CoinremitterRedirectModuleFrontController extends ModuleFrontController
       $coin_name = $wallet['coin_name'];
       $now = date('Y-m-d H:i:s');
       $db = Db::getInstance();
-      $or_sql = "INSERT INTO `coinremitter_orders` (`order_id`, `user_id`, `coin_symbol`, `coin_name`, `crypto_amount`, `fiat_symbol`, `fiat_amount`,`payment_address`,`qr_code`,`expiry_date`,`created_at`,`updated_at`) VALUES ('$orderId', '$customerId','$coin_symbol','$coin_name','$crypto_amount','$fiatSymbol','$orderTotal', '$address', '$qr_code','$expire_on','$now','$now')";
+      $expire_on_val = !empty($expire_on) ? "'" . pSQL($expire_on) . "'" : "NULL";
+      $or_sql = "INSERT INTO `coinremitter_orders` (`order_id`, `user_id`, `coin_symbol`, `coin_name`, `crypto_amount`, `fiat_symbol`, `fiat_amount`,`payment_address`,`qr_code`,`expiry_date`,`created_at`,`updated_at`) VALUES ('" . pSQL($orderId) . "', '" . pSQL($customerId) . "','" . pSQL($coin_symbol) . "','" . pSQL($coin_name) . "'," . (float)$crypto_amount . ",'" . pSQL($fiatSymbol) . "'," . (float)$orderTotal . ", '" . pSQL($address) . "', '" . pSQL($qr_code, true) . "'," . $expire_on_val . ",'" . pSQL($now) . "','" . pSQL($now) . "')";
       $db->Execute($or_sql);
 
       Tools::redirect(_PS_BASE_URL_ . __PS_BASE_URI__ . 'index.php?controller=invoice&fc=module&module=coinremitter&order_id=' . $orderId);

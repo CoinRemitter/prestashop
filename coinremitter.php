@@ -42,7 +42,7 @@ class Coinremitter extends PaymentModule
       new CR_Invoice();
       $this->name = 'coinremitter';
       $this->tab = 'wallets';
-      $this->version = '1.0.4';
+      $this->version = '1.0.5';
       $this->ps_versions_compliancy = array('min' => '1.7', 'max' => _PS_VERSION_);
       $this->author = 'Coinremitter';
       $this->need_instance = 1;
@@ -520,6 +520,9 @@ class Coinremitter extends PaymentModule
          $tab = new Tab($id_tab);
          $tab->delete();
       }
+      Configuration::deleteByName('COINREMITTER_WALLETS_MIGRATED');
+      Configuration::deleteByName('COINREMITTER_ENC_KEY');
+
       return parent::uninstall();
    }
 
@@ -698,17 +701,17 @@ class Coinremitter extends PaymentModule
    public function orderConfirm($order_id)
    {
       $db = Db::getInstance();
-      $order = new Order($order_id);
-      $orderid = pSQL($orderid);
-      $sql = "SELECT * FROM coinremitter_orders WHERE order_id='" . $order_id . "'";
-      $order = $db->executeS($sql);
-      if (empty($order)) {
+      $order_id_escaped = pSQL($order_id);
+      $sql = "SELECT * FROM coinremitter_orders WHERE order_id='" . $order_id_escaped . "'";
+      $coinremitterOrder = $db->executeS($sql);
+      if (empty($coinremitterOrder)) {
          return false;
       }
-      $order = $order[0];
-      if ($order['order_status'] != ORDER_STATUS_CODE["paid"] || $order['order_status'] != ORDER_STATUS_CODE['over_paid']) {
+      $coinremitterOrder = $coinremitterOrder[0];
+      if ($coinremitterOrder['order_status'] != ORDER_STATUS_CODE["paid"] && $coinremitterOrder['order_status'] != ORDER_STATUS_CODE['over_paid']) {
          return false;
       }
+      $order = new Order((int)$order_id);
       $accepted_payment_status = Configuration::get('coinremitter_order_status');
       $order_current_status = $order->current_state;
       if ($accepted_payment_status != $order_current_status) {
